@@ -47,9 +47,10 @@
 ### M3 失败恢复
 - [x] `planner plan recover`：失败任务未超上限回 pending、超限 blocked；接入守护 tick
 - [x] `planner_dispatch` 前导规则 · `1e90e49`
-- [ ] **worker 结果回写**：派发时记录 `task_id`，worker 任务终态时把本地任务置 done/failed（进行中）
-- [ ] **人工验收闭环**：`waiting_human` + 平台 `input-required` 提问/应答打通
-- [ ] **重规划闭环**：blocked → 重新注入提示词让 agent 出子树替换（部分：prompt 已含指引）
+- [x] **worker 结果回写**：派发时记录 `task_id`，worker 任务终态时把本地任务置 done/failed
+- [x] **人工验收闭环**：`waiting_human` + 平台 `input-required` 提问/应答打通
+- [x] **拆解人工审批**：`goals.plan_status`(draft/approved)，`apply_plan`→draft，`plan.approve`→approved；守护仅在 approved 后催派发
+- [ ] **重规划闭环**：blocked / `plan.revise` → 重新注入让 agent 出子树替换（prompt 已含指引，待实测）
 
 ### 接口决策（已定，勿反复）
 - [x] 设计往返：确定"Python 服务发给自己"+ planner 标志 + agent 决策/派活的整体架构
@@ -103,6 +104,7 @@
 - [x] 平台侧：`/ws/planner` + `/api/planner/{wid}/state|op|ops` + 快照缓存 + PlannerPage 重做（dev `614de2f`，已重启验证）
 - [x] 联调：core 连 WS → 网页建目标（REST op）→ core 落库 → 快照回推 → 页面可显示任务树
 - [x] core 配合修正：state 带 `progress:{done,total}`；`task.accept/reject` 仅限 `waiting_human`（终态幂等成功）
+- [ ] 平台页展示 `plan_status`（draft/approved）徽标，并据此显示「通过拆解」（新增字段，需平台侧小改）
 
 ### P5 工程化
 - [x] `planner status` 跨目标概览；`planner ping` 检查平台 MCP + `/ws/planner` 连通

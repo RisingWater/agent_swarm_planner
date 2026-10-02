@@ -90,14 +90,16 @@ class PlannerDaemon:
             self.svc.refresh_ready(goal.id)
             if not self.send or goal.id in self._inflight:
                 continue
-            if self._needs_attention(goal.id):
+            if self._needs_attention(goal):
                 self._inflight.add(goal.id)
                 asyncio.create_task(self._nudge(goal.id))
 
-    def _needs_attention(self, goal_id: str) -> bool:
-        tasks = self.svc.store.list_tasks(goal_id)
+    def _needs_attention(self, goal) -> bool:
+        tasks = self.svc.store.list_tasks(goal.id)
         if not tasks:
-            return True  # 尚未拆解
+            return True  # 尚未拆解 → 让 agent 拆解
+        if (goal.plan_status or "draft") != "approved":
+            return False  # 已拆解但未人工审批 → 等审批，不催 agent 派发
         return any(t.status in ("ready", "blocked", "failed", "waiting_human") for t in tasks)
 
     async def _nudge(self, goal_id: str) -> None:

@@ -34,10 +34,12 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
 2. Read state: `planner plan export <goal_id>` (machine-readable) / `planner plan show <goal_id>`.
 3. Decompose: write a JSON plan, then `planner plan apply <goal_id> --file plan.json`.
    Format: `{"tasks":[{"temp_id","title","depends_on":[],"assigned_agent","acceptance_type","execution_spec"}]}`
-   (`temp_id` references may be out of order; the DAG is validated).
-4. Dispatch ready tasks: `planner dispatch <target_wid> "任务内容" --task-id <task_id>` — this
-   auto-prepends `PLANNER_DISPATCH_PREAMBLE` ("compress context first") and links the worker
-   task back to the local task (worker terminal state is written back by `planner serve`).
+   (`temp_id` references may be out of order; the DAG is validated). This sets `plan_status=draft`.
+4. Approval gate: while `plan_status=draft`, only output the task tree for human approval (the
+   platform page has "通过拆解"); do NOT dispatch. After approval, dispatch ready tasks:
+   `planner dispatch <target_wid> "任务内容" --task-id <task_id>` — auto-prepends
+   `PLANNER_DISPATCH_PREAMBLE` ("compress context first") and links the worker task back to the
+   local task (worker terminal state is written back by `planner serve`).
 5. Failures/blocks: `planner plan recover <goal_id>`.
 6. Human acceptance: tasks in `waiting_human` (or `acceptance_type=manual`) need a human
    decision — ask via your native question/permission (the platform surfaces it as

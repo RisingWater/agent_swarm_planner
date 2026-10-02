@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS goals (
     deadline TEXT DEFAULT '',
     success_criteria TEXT DEFAULT '',
     status TEXT DEFAULT 'active',
+    plan_status TEXT DEFAULT 'draft',
     created_at TEXT,
     updated_at TEXT
 );
@@ -109,6 +110,14 @@ def init_db(db_path: Path | str) -> None:
     conn = connect(db_path)
     try:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         conn.commit()
     finally:
         conn.close()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """轻量迁移：旧库补充新增列（幂等）。"""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(goals)").fetchall()}
+    if "plan_status" not in cols:
+        conn.execute("ALTER TABLE goals ADD COLUMN plan_status TEXT DEFAULT 'draft'")

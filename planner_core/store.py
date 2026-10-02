@@ -23,6 +23,7 @@ def _row_to_goal(row) -> Goal:
         deadline=row["deadline"] or "",
         success_criteria=row["success_criteria"] or "",
         status=row["status"] or "active",
+        plan_status=(row["plan_status"] if "plan_status" in row.keys() else None) or "draft",
         created_at=row["created_at"] or "",
         updated_at=row["updated_at"] or "",
     )
@@ -66,10 +67,10 @@ class Store:
         try:
             conn.execute(
                 "INSERT INTO goals (id,title,description,priority,deadline,"
-                "success_criteria,status,created_at,updated_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
+                "success_criteria,status,plan_status,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (gid, title, description, priority, deadline, success_criteria,
-                 "active", now, now),
+                 "active", "draft", now, now),
             )
             conn.commit()
         finally:
@@ -105,8 +106,19 @@ class Store:
         finally:
             conn.close()
 
+    def set_goal_plan_status(self, goal_id: str, plan_status: str) -> None:
+        conn = dbmod.connect(self.db_path)
+        try:
+            conn.execute(
+                "UPDATE goals SET plan_status=?, updated_at=? WHERE id=?",
+                (plan_status, dbmod.utcnow(), goal_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     def update_goal(self, goal_id: str, **fields: object) -> None:
-        allowed = {"title", "description", "priority", "deadline", "success_criteria", "status"}
+        allowed = {"title", "description", "priority", "deadline", "success_criteria", "status", "plan_status"}
         sets = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not sets:
             return

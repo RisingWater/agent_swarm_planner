@@ -72,6 +72,19 @@ async def test_goal_update_and_archive(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_plan_approve_sets_approved(tmp_path):
+    svc = _svc(tmp_path)
+    g = svc.create_goal("g")
+    svc.apply_plan(g.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    assert svc.store.get_goal(g.id).plan_status == "draft"
+    r = await svc.handle_op("plan.approve", {"goal_id": g.id})
+    assert r["ok"]
+    assert svc.store.get_goal(g.id).plan_status == "approved"
+    await svc.handle_op("plan.revise", {"goal_id": g.id})
+    assert svc.store.get_goal(g.id).plan_status == "draft"
+
+
+@pytest.mark.asyncio
 async def test_unknown_op(tmp_path):
     svc = _svc(tmp_path)
     r = await svc.handle_op("nope", {})

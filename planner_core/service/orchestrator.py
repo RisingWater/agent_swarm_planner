@@ -130,6 +130,7 @@ class PlannerService:
                 dep_id = temp_to_real.get(str(dep), str(dep))
                 self.store.add_dependency(task_id, dep_id)
         self.validate_goal(goal_id)
+        self.store.set_goal_plan_status(goal_id, "draft")
         return created
 
     def export_goal(self, goal_id: str) -> dict[str, Any]:
@@ -295,6 +296,10 @@ class PlannerService:
             gid = str(payload.get("goal_id") or "")
             if self.store.get_goal(gid) is None:
                 return {"ok": False, "error": f"目标不存在: {gid}"}
+            if op == "plan.approve":
+                self.store.set_goal_plan_status(gid, "approved")
+            elif op == "plan.revise":
+                self.store.set_goal_plan_status(gid, "draft")
             self._schedule_nudge(gid)
             return {"ok": True, "nudged": True}
         if op in ("task.accept", "task.reject"):
@@ -465,7 +470,7 @@ class PlannerService:
         lines = [
             f"# 目标：{goal.title}",
             "",
-            f"- 状态：{goal.status} · 优先级：{goal.priority} · 进度：{done}/{len(tasks)}",
+            f"- 状态：{goal.status} · 拆解：{goal.plan_status} · 优先级：{goal.priority} · 进度：{done}/{len(tasks)}",
         ]
         if goal.success_criteria:
             lines.append(f"- 成功标准：{goal.success_criteria}")

@@ -32,6 +32,7 @@ class Goal:
     deadline: str = ""
     success_criteria: str = ""
     status: str = "active"
+    plan_status: str = "draft"   # draft | approved
     created_at: str = ""
     updated_at: str = ""
 

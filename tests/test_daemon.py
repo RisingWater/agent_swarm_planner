@@ -13,15 +13,25 @@ def _daemon(tmp_path):
 def test_needs_attention_when_no_tasks(tmp_path):
     d = _daemon(tmp_path)
     goal = d.svc.create_goal("g")
-    assert d._needs_attention(goal.id) is True
+    assert d._needs_attention(goal) is True
 
 
-def test_needs_attention_when_ready(tmp_path):
+def test_draft_plan_not_nudged(tmp_path):
     d = _daemon(tmp_path)
     goal = d.svc.create_goal("g")
     d.svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
     d.svc.refresh_ready(goal.id)
-    assert d._needs_attention(goal.id) is True
+    assert d.svc.store.get_goal(goal.id).plan_status == "draft"
+    assert d._needs_attention(d.svc.store.get_goal(goal.id)) is False  # 等人工审批
+
+
+def test_needs_attention_when_ready_and_approved(tmp_path):
+    d = _daemon(tmp_path)
+    goal = d.svc.create_goal("g")
+    d.svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    d.svc.refresh_ready(goal.id)
+    d.svc.store.set_goal_plan_status(goal.id, "approved")
+    assert d._needs_attention(d.svc.store.get_goal(goal.id)) is True
 
 
 def test_no_attention_when_all_done(tmp_path):
@@ -30,7 +40,8 @@ def test_no_attention_when_all_done(tmp_path):
     d.svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
     task = d.svc.store.list_tasks(goal.id)[0]
     d.svc.store.set_task_status(task.id, "done")
-    assert d._needs_attention(goal.id) is False
+    d.svc.store.set_goal_plan_status(goal.id, "approved")
+    assert d._needs_attention(d.svc.store.get_goal(goal.id)) is False
 
 
 def test_ingest_updates_platform_task(tmp_path):

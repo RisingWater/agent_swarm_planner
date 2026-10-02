@@ -27,8 +27,8 @@
 | `goal.create` | `{title, description?, priority?, deadline?, success_criteria?}` | 新建目标 |
 | `goal.update` | `{goal_id, title?, description?, priority?, deadline?, success_criteria?}` | 编辑目标 |
 | `goal.archive` | `{goal_id}` | 归档 |
-| `plan.approve` | `{goal_id}` | 审批拆解 → 通知 agent 开始派发 |
-| `plan.revise` | `{goal_id, note?}` | 要求重新拆解 |
+| `plan.approve` | `{goal_id}` | 审批拆解（置 `plan_status=approved`）→ 通知 agent 开始派发 |
+| `plan.revise` | `{goal_id, note?}` | 要求重新拆解（置 `plan_status=draft`） |
 | `task.accept` | `{task_id, result?}` | 人工验收通过 |
 | `task.reject` | `{task_id, reason?}` | 人工验收拒绝 |
 | `goal.nudge` | `{goal_id}` | 手动触发 planner agent 决策 |
@@ -47,7 +47,7 @@ core 回执：
 ← {"type":"state","payload":{
   "workspace_id":"<wid>",
   "updated_at":"<ISO>",
-  "goals":[{"id","title","description","status","priority","deadline",
+  "goals":[{"id","title","description","status","plan_status","priority","deadline",
             "success_criteria","progress":{"done":n,"total":m}}],
   "tasks":[{"id","goal_id","title","status","depends_on":[...],
             "assigned_agent","acceptance_type","acceptance_result","updated_at"}]
