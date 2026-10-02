@@ -25,6 +25,22 @@ On Windows/PowerShell, Chinese output/args get mojibake unless you set
 `chcp 65001` + `[Console]::OutputEncoding=[Text.Encoding]::UTF8` + `$env:PYTHONUTF8=1`.
 PowerShell 5.1 has no `&&`; use separate statements.
 
+## Planner agent playbook (CLI — no MCP needed)
+
+When planner-core injects you a planning prompt, you are the **planner agent**. All state
+lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\python.exe -m planner_core <sub>`):
+
+1. **Compress context first** (the injected step 0) — always.
+2. Read state: `planner plan export <goal_id>` (machine-readable) / `planner plan show <goal_id>`.
+3. Decompose: write a JSON plan, then `planner plan apply <goal_id> --file plan.json`.
+   Format: `{"tasks":[{"temp_id","title","depends_on":[],"assigned_agent","acceptance_type","execution_spec"}]}`
+   (`temp_id` references may be out of order; the DAG is validated).
+4. Dispatch ready tasks: `planner dispatch <target_wid> "任务内容"` — this auto-prepends
+   `PLANNER_DISPATCH_PREAMBLE` ("compress context first"). Then `planner task set <task_id> running`.
+5. Failures/blocks: `planner plan recover <goal_id>`.
+6. Finish: `planner plan markdown <goal_id>` and use that output as your reply — the platform
+   "Planner" page renders it as the task tree.
+
 ## Config resolution (in order)
 
 `planner_core/config.py`: process env → project `.env` → `~/.config/opencode/agent-swarm.json`
@@ -34,8 +50,8 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
 ## Architecture facts an agent will otherwise get wrong
 
 - **Two processes**: `planner-core` (this repo, deterministic: SQLite/DAG/scheduling/
-  acceptance/prompt injection) and the **planner agent** (any MCP agent, user-run, does
-  the thinking + `a2a_call` dispatch).
+  acceptance/prompt injection) and the **planner agent** (any agent the user runs —
+  opencode/claude/deepseek — which does the thinking and dispatches workers).
 - **Self-injection is the intended mechanism.** The MCP tool `a2a_call` refuses
   `target == from_workspace`, but the raw gateway `POST /a2a/{wid}` (apikey auth) does
   NOT. That's how the non-agent Python service sends prompts to its own workspace.
@@ -56,11 +72,6 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
 - `planner_core/platform/mcp_client.py` — minimal stateless `/mcp/` client (`tools/call`
   works without `initialize`); backs `planner_dispatch`, which mechanically prepends
   `PLANNER_DISPATCH_PREAMBLE` ("compress context first") to every worker dispatch.
-- `planner_core/mcp_server.py` — zero-dep stdio MCP `planner_*` tools; `serve()` reads
-  newline-delimited JSON-RPC (strips a leading BOM — PowerShell pipes add one).
-- `planner_core/guard.py` — MCP only serves when cwd is inside the planner repo AND
-  `.agent_swarm/workspace.md` has `ROLE: planner` (written by `planner register`).
-  Never put this MCP in a global agent config — that would expose it to every project.
 - `planner_core/service/daemon.py` — `planner serve`: observer + tick (refresh ready, throttled nudge).
 - `planner_core/engine/acceptance.py` — runs `execution_spec.accept_command`.
 - `tests/` — pytest. `data/` and `.env` are gitignored.

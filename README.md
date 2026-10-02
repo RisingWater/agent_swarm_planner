@@ -66,7 +66,6 @@ python -m venv .venv
 | `planner observe` | 订阅 `/ws/nexus` 观察事件 |
 | `planner dispatch <target_wid> "指令" [--wait N]` | 经平台 `a2a_call` 派任务给目标工作区（自动加"先压缩上下文"前导） |
 | `planner accept <task_id>` | 执行该任务的自动验收命令（`execution_spec.accept_command`） |
-| `planner mcp` | 启动本地 MCP 状态接口（stdio），供 planner agent 读写 |
 | `planner serve [--no-send] [--tick 30]` | 后台守护：订阅事件 + 提升就绪 + 按需注入 |
 
 `plan apply` 的 JSON 格式：
@@ -89,58 +88,36 @@ planner_core/
 └─ cli.py
 ```
 
-## 本地 MCP 状态接口
+## agent 接口：CLI（无需安装）
 
-`planner mcp` 用零依赖 stdio JSON-RPC 暴露 7 个工具，任意 MCP 客户端（opencode / claude /
-dsh）都能连，让 agent 不必 shell 调 CLI：
+planner agent（opencode / claude / dsh 任意）都有 shell，直接在本目录用 CLI 读写状态即可——
+**零安装、harness 无关**：
 
-`planner_get_state` · `planner_next_ready` · `planner_save_plan` ·
-`planner_set_task_status` · `planner_add_goal` · `planner_record_execution` ·
-`planner_run_acceptance` · `planner_recover` · `planner_render` · `planner_dispatch`
-
-`planner_dispatch` 走平台 MCP `a2a_call`，会**自动**在指令前加上
-`PLANNER_DISPATCH_PREAMBLE`（默认"请先压缩/总结你的上下文…"）——把「派单先让对方压缩
-上下文」这条规则机械化，不依赖 agent 记忆。
-
-### 安全边界（重要）
-
-本地 MCP **不是只对 planner agent 开放的**——stdio MCP 没有调用方身份，谁能连取决于它被写进
-谁的配置。因此：
-
-- **只写进 planner 项目自己的配置**，不要写全局 `~/.config/opencode/opencode.jsonc`，否则
-  机器上其它项目的 agent 也能读写 planner 的库、甚至向外派单。
-- **启动校验**：`planner mcp` 启动时要求 (a) 进程 cwd 在 planner 仓库内；(b) 仓库
-  `.agent_swarm/workspace.md` 含 `ROLE: planner`（由 `planner register` 写入）。任一不满足
-  直接 `exit 2` 拒绝服务。调试可用 `planner mcp --no-guard` 跳过。
-
-opencode 接入示例（写入 `opencode.jsonc`）：
-
-```jsonc
-{
-  "mcp": {
-    "servers": {
-      "planner-core": {
-        "type": "local",
-        "command": ["<repo>\\.venv\\Scripts\\python.exe", "-m", "planner_core", "mcp"]
-      }
-    }
-  }
-}
 ```
+planner plan export <goal_id>                 # 读全量状态
+planner plan show <goal_id>                   # 看任务树
+planner plan apply <goal_id> --file plan.json # 写回拆解结果（两趟解析 + DAG 校验）
+planner task set <task_id> <status>
+planner plan recover <goal_id>                # 失败重试/阻塞升级
+planner plan markdown <goal_id>               # 生成回推平台的任务树快照
+planner dispatch <target_wid> "指令"           # 派活（自动前置"先压缩上下文"）
+```
+
+注入给 planner agent 的提示词已经写明了这些命令，不需要额外配置任何 MCP。
 
 ## 任务验收
 
-任务 `execution_spec` 里配 `accept_command`（可选 `cwd` / `timeout`），`planner accept <task_id>`
-或 MCP `planner_run_acceptance` 会执行并把结果写入 `tasks.acceptance_result` 与 `executions`。
+任务 `execution_spec` 里配 `accept_command`（可选 `cwd` / `timeout`），运行
+`planner accept <task_id>` 会执行并把结果写入 `tasks.acceptance_result` 与 `executions`。
 `acceptance_type=manual` 的任务由人类通过平台的 `input-required` 提问确认。
 
 ## 状态
 
 - ✅ M0/M1：配置解析、SQLite schema、DAG、`plan apply/export`、提示词组装、A2A 投递、
   Nexus 观察者，含单测。
-- ✅ M2：本地 MCP 状态接口（7 工具，stdio 手写 JSON-RPC）、后台守护 `serve`
-  （`/ws/nexus` 订阅 + 就绪提升 + 节流注入）、自动验收 `accept`。
-- ✅ M3（部分）：失败任务重试/阻塞升级（`plan recover` / MCP `planner_recover`，接入守护 tick）；
-  平台 MCP 客户端 + `planner_dispatch`（派单自动前置"先压缩上下文"）。
-- ⏳ 下一步：平台侧 planner 标志 + 「目标/任务树」页（配合 `agent_swarm` 工作区）、
-  人工验收提问闭环。
+- ✅ M2：后台守护 `serve`（`/ws/nexus` 订阅 + 就绪提升 + 节流注入）、自动验收 `accept`；
+  平台 MCP 客户端（出站调 `a2a_call`/`workspace_add`）。
+- ✅ M3（部分）：失败任务重试/阻塞升级（`plan recover`，接入守护 tick）；
+  `planner dispatch`（派单自动前置"先压缩上下文"）。
+- ✅ agent 接口定为 **CLI**（零安装、harness 无关）；本地 MCP 已移除。
+- ⏳ 下一步：平台侧 `role` + `PlannerPage`（`agent_swarm` 工作区已在做）、人工验收提问闭环。

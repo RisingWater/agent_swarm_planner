@@ -194,15 +194,6 @@ def cmd_accept(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
-def cmd_mcp(args: argparse.Namespace) -> int:
-    from .mcp_server import serve
-
-    settings = load_settings()
-    settings.validate()
-    serve(settings, enforce_guard=not getattr(args, "no_guard", False))
-    return 0
-
-
 def cmd_serve(args: argparse.Namespace) -> int:
     from .service.daemon import PlannerDaemon
 
@@ -312,10 +303,6 @@ def build_parser() -> argparse.ArgumentParser:
     ac = sub.add_parser("accept", help="执行任务的自动验收命令")
     ac.add_argument("task_id")
     ac.set_defaults(func=cmd_accept)
-
-    mc = sub.add_parser("mcp", help="启动本地 MCP 状态接口（stdio）")
-    mc.add_argument("--no-guard", action="store_true", help="跳过 planner 标志/目录校验（仅调试）")
-    mc.set_defaults(func=cmd_mcp)
 
     rg = sub.add_parser("register", help="把本目录注册/标记为 planner 工作区（MCP workspace_add）")
     rg.add_argument("--role", default="planner", help="默认 planner")
