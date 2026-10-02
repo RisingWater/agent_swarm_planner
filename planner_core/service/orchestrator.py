@@ -299,7 +299,8 @@ class PlannerService:
                 return {"ok": False, "error": f"目标不存在: {gid}"}
             self.store.update_goal(gid, **{k: payload.get(k) for k in
                                            ("title", "description", "priority", "deadline",
-                                            "success_criteria", "expert_workspace_id", "expert_name")})
+                                            "success_criteria", "criteria_confirmed",
+                                            "expert_workspace_id", "expert_name")})
             return {"ok": True}
         if op == "goal.archive":
             self.store.set_goal_status(str(payload.get("goal_id") or ""), "archived")
@@ -556,7 +557,8 @@ class PlannerService:
         if goal.expert_workspace_id:
             lines.append(f"- 专家工作区：{goal.expert_name or goal.expert_workspace_id} (`{goal.expert_workspace_id}`)")
         if goal.success_criteria:
-            lines.append(f"- 成功标准：{goal.success_criteria}")
+            mark = "（专家已确认）" if goal.criteria_confirmed else "（待专家确认）"
+            lines.append(f"- 成功标准：{goal.success_criteria}{mark}")
         if goal.deadline:
             lines.append(f"- 截止：{goal.deadline}")
         lines.append("")

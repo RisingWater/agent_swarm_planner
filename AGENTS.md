@@ -33,10 +33,12 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
 1. **Compress context first** (the injected step 0) — always.
 2. Read state: `planner plan export <goal_id>` (machine-readable) / `planner plan show <goal_id>`.
 3. Decompose: if the goal has an **expert workspace** (`expert_workspace_id`), first talk to it
-   via platform `a2a_call` (from_workspace = this workspace, reuse `context_id` for multi-turn)
-   and get the task tree incl. **expert acceptance points**; then `planner plan apply` it
-   (`acceptance_type=expert` for those points). No expert → decompose yourself. `plan apply`
-   sets `plan_status=draft`.
+   via platform `a2a_call` (from_workspace = this workspace, reuse `context_id` for multi-turn):
+   ask it to **confirm/refine the success criteria** and give the task tree incl. **expert
+   acceptance points**. Then write back the criteria with
+   `planner goal set-criteria <goal_id> "<criteria>" --confirmed` and the tree with
+   `planner plan apply` (`acceptance_type=expert` for those points). No expert → decompose
+   yourself. `plan apply` sets `plan_status=draft`.
 4. Approval gate: while `plan_status=draft`, only output the task tree for human approval (the
    platform page has "通过拆解"); do NOT dispatch. After approval, dispatch ready tasks:
    `planner dispatch <target_wid> "任务内容" --task-id <task_id>` — auto-prepends

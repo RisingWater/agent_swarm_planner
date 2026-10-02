@@ -24,6 +24,7 @@ def _row_to_goal(row) -> Goal:
         success_criteria=row["success_criteria"] or "",
         status=row["status"] or "active",
         plan_status=(row["plan_status"] if "plan_status" in row.keys() else None) or "draft",
+        criteria_confirmed=int((row["criteria_confirmed"] if "criteria_confirmed" in row.keys() else 0) or 0),
         expert_workspace_id=(row["expert_workspace_id"] if "expert_workspace_id" in row.keys() else None) or "",
         expert_name=(row["expert_name"] if "expert_name" in row.keys() else None) or "",
         created_at=row["created_at"] or "",
@@ -71,10 +72,11 @@ class Store:
         try:
             conn.execute(
                 "INSERT INTO goals (id,title,description,priority,deadline,"
-                "success_criteria,status,plan_status,expert_workspace_id,expert_name,"
-                "created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                "success_criteria,status,plan_status,criteria_confirmed,"
+                "expert_workspace_id,expert_name,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (gid, title, description, priority, deadline, success_criteria,
-                 "active", "draft", expert_workspace_id, expert_name, now, now),
+                 "active", "draft", 0, expert_workspace_id, expert_name, now, now),
             )
             conn.commit()
         finally:
@@ -144,7 +146,8 @@ class Store:
 
     def update_goal(self, goal_id: str, **fields: object) -> None:
         allowed = {"title", "description", "priority", "deadline", "success_criteria",
-                   "status", "plan_status", "expert_workspace_id", "expert_name"}
+                   "status", "plan_status", "criteria_confirmed",
+                   "expert_workspace_id", "expert_name"}
         sets = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not sets:
             return

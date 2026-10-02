@@ -46,6 +46,10 @@ core 回执：
 planner agent 与专家 agent 沟通后写入；专家验收点用 `acceptance_type=expert`，任务会进入
 `waiting_expert` 状态，由 planner agent 汇总情况请专家裁决（平台不参与专家对话，只负责选择与展示）。
 
+**字段约定**：`priority` 用 `高=2 / 中=1 / 低=0`（排序数值大优先）；`deadline` 为空字符串 =
+无截止；`success_criteria` 由专家确认，`criteria_confirmed=1` 表示已确认（`goal.update` 可写
+`success_criteria` + `criteria_confirmed`）。
+
 ## 3. core → 平台：状态快照
 
 每次变更后、连接建立后、以及每 30s 周期推送：
@@ -54,7 +58,7 @@ planner agent 与专家 agent 沟通后写入；专家验收点用 `acceptance_t
   "workspace_id":"<wid>",
   "updated_at":"<ISO>",
   "goals":[{"id","title","description","status","plan_status","priority","deadline",
-            "success_criteria","expert_workspace_id","expert_name",
+            "success_criteria","criteria_confirmed","expert_workspace_id","expert_name",
             "progress":{"done":n,"total":m}}],
   "tasks":[{"id","goal_id","title","status","depends_on":[...],
             "assigned_agent","acceptance_type","acceptance_result","updated_at"}]

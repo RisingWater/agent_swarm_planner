@@ -59,16 +59,35 @@ def cmd_status(args: argparse.Namespace) -> int:
 def cmd_goal_add(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
+    from .models import PRIORITY_LEVELS
+
+    priority = PRIORITY_LEVELS[args.level] if args.level else args.priority
     goal = svc.create_goal(
         title=args.title,
         description=args.desc or "",
-        priority=args.priority,
+        priority=priority,
         deadline=args.deadline or "",
         success_criteria=args.criteria or "",
         expert_workspace_id=args.expert or "",
         expert_name=args.expert_name or "",
     )
     print(json.dumps(goal.__dict__, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_goal_set_criteria(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    if svc.store.get_goal(args.goal_id) is None:
+        print(f"目标不存在: {args.goal_id}")
+        return 1
+    fields: dict = {"success_criteria": args.text}
+    if args.confirmed:
+        fields["criteria_confirmed"] = 1
+    if args.unconfirmed:
+        fields["criteria_confirmed"] = 0
+    svc.store.update_goal(args.goal_id, **fields)
+    print(f"{args.goal_id} 成功标准已更新" + ("（专家已确认）" if args.confirmed else ""))
     return 0
 
 
@@ -360,7 +379,8 @@ def build_parser() -> argparse.ArgumentParser:
     ga.add_argument("--desc", default="")
     ga.add_argument("--criteria", default="")
     ga.add_argument("--priority", type=int, default=0)
-    ga.add_argument("--deadline", default="")
+    ga.add_argument("--level", choices=["高", "中", "低"], default="", help="优先级（映射 高=2/中=1/低=0）")
+    ga.add_argument("--deadline", default="", help="截止时间；不填=无截止")
     ga.add_argument("--expert", default="", help="专家 agent 工作区 ID（负责拆解与专家验收）")
     ga.add_argument("--expert-name", default="", help="专家工作区名称（展示用）")
     ga.set_defaults(func=cmd_goal_add)
@@ -369,6 +389,12 @@ def build_parser() -> argparse.ArgumentParser:
     gse.add_argument("workspace_id")
     gse.add_argument("--name", default="")
     gse.set_defaults(func=cmd_goal_set_expert)
+    gsc = gsub.add_parser("set-criteria", help="设置目标成功标准（--confirmed 表示专家已确认）")
+    gsc.add_argument("goal_id")
+    gsc.add_argument("text")
+    gsc.add_argument("--confirmed", action="store_true")
+    gsc.add_argument("--unconfirmed", action="store_true")
+    gsc.set_defaults(func=cmd_goal_set_criteria)
     gd = gsub.add_parser("delete", help="硬删除目标（含任务树/执行记录，级联）")
     gd.add_argument("goal_id")
     gd.add_argument("--yes", action="store_true", help="确认删除")

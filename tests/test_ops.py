@@ -121,6 +121,23 @@ async def test_expert_flow_states(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_goal_update_criteria_confirmed(tmp_path):
+    svc = _svc(tmp_path)
+    g = svc.create_goal("g")
+    assert svc.store.get_goal(g.id).criteria_confirmed == 0
+    await svc.handle_op("goal.update", {"goal_id": g.id, "success_criteria": "可访问", "criteria_confirmed": 1})
+    goal = svc.store.get_goal(g.id)
+    assert goal.success_criteria == "可访问" and goal.criteria_confirmed == 1
+
+
+def test_priority_mapping():
+    from planner_core.models import PRIORITY_LEVELS, priority_label
+
+    assert PRIORITY_LEVELS["高"] == 2 and PRIORITY_LEVELS["低"] == 0
+    assert priority_label(1) == "中"
+
+
+@pytest.mark.asyncio
 async def test_goal_archive_and_activate(tmp_path):
     svc = _svc(tmp_path)
     g = svc.create_goal("g")

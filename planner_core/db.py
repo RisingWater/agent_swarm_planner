@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS goals (
     success_criteria TEXT DEFAULT '',
     status TEXT DEFAULT 'active',
     plan_status TEXT DEFAULT 'draft',
+    criteria_confirmed INTEGER DEFAULT 0,
     expert_workspace_id TEXT DEFAULT '',
     expert_name TEXT DEFAULT '',
     created_at TEXT,
@@ -123,6 +124,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(goals)").fetchall()}
     if "plan_status" not in cols:
         conn.execute("ALTER TABLE goals ADD COLUMN plan_status TEXT DEFAULT 'draft'")
+    if "criteria_confirmed" not in cols:
+        conn.execute("ALTER TABLE goals ADD COLUMN criteria_confirmed INTEGER DEFAULT 0")
     if "expert_workspace_id" not in cols:
         conn.execute("ALTER TABLE goals ADD COLUMN expert_workspace_id TEXT DEFAULT ''")
     if "expert_name" not in cols:

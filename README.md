@@ -55,9 +55,10 @@ python -m venv .venv
 | `planner status` | 跨目标概览（进度/就绪/阻塞/待验收） |
 | `planner ping` | 检查平台 MCP 与控制通道 `/ws/planner` 连通 |
 | `planner init` | 初始化 SQLite |
-| `planner goal add "标题" --desc ... --criteria ... --expert <wid>` | 创建目标（`--expert` 指定专家 agent 工作区） |
+| `planner goal add "标题" --desc ... --level 高|中|低 --criteria ... --expert <wid>` | 创建目标（`--level` 优先级 高=2/中=1/低=0；`--deadline` 不填=无截止；`--expert` 指定专家） |
 | `planner goal list` | 列出目标 |
 | `planner goal set-expert <goal_id> <wid> [--name]` | 设置/更换目标的专家工作区 |
+| `planner goal set-criteria <goal_id> "标准" [--confirmed]` | 设置成功标准（`--confirmed` 表示专家已确认） |
 | `planner goal activate <goal_id>` | 恢复已归档目标为 active |
 | `planner goal delete <goal_id> --yes` | 硬删除目标及其任务树/执行记录（级联） |
 | `planner workspaces [--all]` | 列出平台可见工作区（选专家/派活用） |

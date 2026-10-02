@@ -69,8 +69,10 @@ def build_prompt(settings: Settings, goal: Goal, tasks: list[Task]) -> str:
     lines.append("2. 读取状态：`planner plan export <goal_id>`（或 `planner plan show <goal_id>`）。")
     if goal.expert_workspace_id:
         lines.append("3. 专家拆解：任务树为空/不完整时，先用平台 a2a_call 与该**专家工作区**多轮沟通")
-        lines.append("   （from_workspace=本工作区，context_id 续聊），把目标讲清楚，请它给出任务树与")
-        lines.append("   **专家验收点**；拿到后 `planner plan apply` 写入（验收点标 acceptance_type=expert）。")
+        lines.append("   （from_workspace=本工作区，context_id 续聊），把目标讲清楚，请它**确认/修正成功标准**")
+        lines.append("   并给出任务树与**专家验收点**；成功后用")
+        lines.append("   `planner goal set-criteria <goal_id> \"<标准>\" --confirmed` 写回成功标准，")
+        lines.append("   `planner plan apply` 写入任务树（验收点标 acceptance_type=expert）。")
     else:
         lines.append("3. 无专家工作区时，你可自行拆解并用 `planner plan apply` 写入。")
     lines.append("4. 拆解审批：`plan_status=draft` 时本轮只输出任务树等人工审批（页面「通过拆解」），不要派发。")

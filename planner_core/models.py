@@ -21,7 +21,15 @@ TERMINAL_TASK_STATUSES = ("done", "failed", "blocked")
 
 GOAL_STATUSES = ("active", "archived", "done")
 
-ACCEPTANCE_TYPES = ("auto", "manual")
+ACCEPTANCE_TYPES = ("auto", "manual", "expert")
+
+# 优先级：高/中/低 ↔ 2/1/0（排序按数值大优先）
+PRIORITY_LEVELS = {"高": 2, "中": 1, "低": 0}
+PRIORITY_LABELS = {2: "高", 1: "中", 0: "低"}
+
+
+def priority_label(p: int) -> str:
+    return PRIORITY_LABELS.get(int(p or 0), str(p))
 
 
 @dataclass
@@ -34,6 +42,7 @@ class Goal:
     success_criteria: str = ""
     status: str = "active"
     plan_status: str = "draft"   # draft | approved
+    criteria_confirmed: int = 0  # 成功标准是否经专家确认
     expert_workspace_id: str = ""
     expert_name: str = ""
     created_at: str = ""
