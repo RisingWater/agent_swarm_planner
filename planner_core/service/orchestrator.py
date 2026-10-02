@@ -18,6 +18,36 @@ from ..platform.a2a_client import A2AClient
 from ..store import Store
 
 
+def _read_workspace_md(root) -> dict[str, str]:
+    from pathlib import Path
+
+    f = Path(root) / ".agent_swarm" / "workspace.md"
+    out: dict[str, str] = {}
+    if f.is_file():
+        for raw in f.read_text(encoding="utf-8").splitlines():
+            if ":" in raw:
+                k, _, v = raw.partition(":")
+                out[k.strip().upper()] = v.strip()
+    return out
+
+
+def _write_workspace_md(root, workspace_id: str, purpose: str, capabilities: str) -> None:
+    from pathlib import Path
+
+    f = Path(root) / ".agent_swarm" / "workspace.md"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    cur = _read_workspace_md(root)
+    cur["WORKSPACE_ID"] = workspace_id
+    if purpose:
+        cur["PURPOSE"] = purpose
+    if capabilities:
+        cur["CAPABILITIES"] = capabilities
+    order = ["WORKSPACE_ID", "PURPOSE", "CAPABILITIES"]
+    lines = [f"{k}: {cur[k]}" for k in order if k in cur]
+    lines += [f"{k}: {v}" for k, v in cur.items() if k not in order]
+    f.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 class PlannerService:
     def __init__(self, settings: Settings, store: Store | None = None):
         self.settings = settings
@@ -187,6 +217,22 @@ class PlannerService:
         if actions:
             self.refresh_ready(goal_id)
         return actions
+
+    # ---------------------------------------------------------------- 注册
+    def register(self, role: str = "planner", purpose: str = "", capabilities: str = "") -> dict[str, Any]:
+        """用 MCP `workspace_add` 把本目录注册/标记为 planner 工作区，并写 workspace.md。"""
+        from ..platform.mcp_client import MCPClient
+
+        s = self.settings
+        md = _read_workspace_md(s.root)
+        purpose = purpose or md.get("PURPOSE", "")
+        capabilities = capabilities or md.get("CAPABILITIES", "")
+        res = MCPClient(s).workspace_add(
+            path=str(s.root), purpose=purpose, capabilities=capabilities, role=role
+        )
+        wid = str(res.get("workspace_id") or s.workspace_id)
+        _write_workspace_md(s.root, wid, purpose, capabilities)
+        return {"workspace_id": wid, "role": str(res.get("role") or role), "result": res}
 
     # ---------------------------------------------------------------- 派单
     def wrap_dispatch(self, message: str) -> str:

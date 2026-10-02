@@ -67,6 +67,15 @@ class MCPClient:
     def a2a_task(self, task_id: str) -> dict[str, Any]:
         return self.call_tool("a2a_task", {"task_id": task_id})
 
+    def workspace_add(
+        self, path: str, purpose: str = "", capabilities: str = "",
+        name: str = "", role: str = "planner",
+    ) -> dict[str, Any]:
+        return self.call_tool("workspace_add", {
+            "path": path, "purpose": purpose, "capabilities": capabilities,
+            "name": name, "role": role,
+        })
+
     def set_role(self, workspace_id: str, role: str = "planner") -> dict[str, Any]:
         return self.call_tool("update_info", {"workspace_id": workspace_id, "role": role})
 

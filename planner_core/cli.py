@@ -177,6 +177,15 @@ def cmd_dispatch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_register(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    svc.settings.validate()
+    result = svc.register(role=args.role, purpose=args.purpose or "", capabilities=args.capabilities or "")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_accept(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -305,6 +314,12 @@ def build_parser() -> argparse.ArgumentParser:
     ac.set_defaults(func=cmd_accept)
 
     sub.add_parser("mcp", help="启动本地 MCP 状态接口（stdio）").set_defaults(func=cmd_mcp)
+
+    rg = sub.add_parser("register", help="把本目录注册/标记为 planner 工作区（MCP workspace_add）")
+    rg.add_argument("--role", default="planner", help="默认 planner")
+    rg.add_argument("--purpose", default="")
+    rg.add_argument("--capabilities", default="")
+    rg.set_defaults(func=cmd_register)
     sv = sub.add_parser("serve", help="启动后台守护（观察 + 调度 + 注入）")
     sv.add_argument("--no-send", action="store_true", help="只观察/调度，不注入提示词")
     sv.add_argument("--tick", type=float, default=30.0, help="调度间隔秒（默认 30）")
