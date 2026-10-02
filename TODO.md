@@ -1,7 +1,7 @@
 # agent-swarm-planner 开发进度 TODO
 
 > 持续更新的进度/交接文档。**只增不删**：新进展往下追加；已有条目只改勾选状态。
-> 更新时间：2026-10-02 · 当前 HEAD：`7078431`（planner）/ `e8b224e`（agent_swarm dev）
+> 更新时间：2026-10-02 · 当前 HEAD：`92d231a`（planner）/ `aec36b6`（agent_swarm dev）
 
 ## 项目一句话
 
@@ -11,11 +11,11 @@
 
 ## 进度快照
 
-- ✅ planner-core（确定性内核）M0–M3 主体完成，45 例单测通过；worker 结果回写 + 验收策略已接。
+- ✅ planner-core（确定性内核）M0–M4 完成，**61 例单测通过**；worker 结果回写 + 三态验收 + 专家/自评审已接。
 - ✅ agent 接口定为 **CLI**（零安装、harness 无关）；本地 MCP 已按决策移除。
-- ✅ 平台侧：`role` + 控制通道 `/ws/planner` + 真实「规划器」页（建目标/任务树/审批验收），服务端已重启。
-- ✅ 两侧联调通过；`status`/`ping`/`serve` 冒烟 + CI 就绪。
-- ⏳ 未完成：真实浏览器端到端演示、agent 拆解+worker 派发业务闭环实测。
+- ✅ 平台侧：`role` + 控制通道 `/ws/planner` + 真实「规划器」页（建目标/任务树/审批验收/归档激活删除/隐藏归档/专家选择），服务端已重启。
+- ✅ 两侧联调与**真实端到端业务闭环**跑通：两个目标已 `done`（见「六、真实端到端实测记录」）。
+- ✅ `status`/`ping`/`workspaces`/`report`/`serve`/`ws` + CI 就绪；文档（README/AGENTS/协议/需求）已补齐。
 
 ---
 
@@ -50,7 +50,7 @@
 - [x] **worker 结果回写**：派发时记录 `task_id`，worker 任务终态时把本地任务置 done/failed
 - [x] **人工验收闭环**：`waiting_human` + 平台 `input-required` 提问/应答打通
 - [x] **拆解人工审批**：`goals.plan_status`(draft/approved)，`apply_plan`→draft，`plan.approve`→approved；守护仅在 approved 后催派发
-- [ ] **重规划闭环**：blocked / `plan.revise` → 重新注入让 agent 出子树替换（prompt 已含指引，待实测）
+- [x] **重规划闭环**：`plan apply --replace`（整树替换）+ `plan.revise`→draft + `plan recover`；已在真实目标中由守护触发验证
 
 ### M4 专家工作区（专家拆解 + 专家验收）
 - [x] `goals.expert_workspace_id/expert_name` + 迁移；`goal.create` 可带专家
@@ -66,8 +66,13 @@
 - [x] 平台：目标编辑可改专家（空串=清除）；验收类型文案 `auto/manual/expert` 统一（dev `20406a9`）
 - [x] core：`goal.delete`（硬删除，级联任务树/执行）、`goal.activate`（归档恢复）；CLI `goal delete --yes` / `goal activate`
 - [x] 优先级 `高/中/低`(2/1/0) 映射 + CLI `--level`；成功标准 `criteria_confirmed`（专家确认）+ CLI `goal set-criteria --confirmed`
-- [ ] 平台：目标列表/详情加「删除」（二次确认）与归档目标的「激活」按钮；**「隐藏已归档目标」checkbox 默认勾选**（已派 `EQsJqqh7eo4avy3WxTxZao` + `ZhyHGPPU6LWxNgwYntimqE`）
-- [ ] 端到端实测：建目标(带专家)→专家拆解→审批→派发→专家验收→裁决/调整
+- [x] 平台：目标列表/详情加「删除」（二次确认）与归档目标的「激活」按钮；**「隐藏已归档目标」checkbox 默认勾选**（dev `1b27cd1` + `006c4f8`）
+- [x] 平台：目标列表「状态/拆解」列合并为状态 tag（dev `653bd37`）；目标编辑可改专家、验收文案统一（dev `20406a9`）
+- [x] 平台：截止「不填=无截止」、优先级 高/中/低 下拉、成功标准「专家已确认/待确认」徽标（dev `b6863e6`）
+- [x] 端到端实测（带专家/自评审）：建目标 →（自评审）确认成功标准 → 拆解 → 人工审批 → 派发 worker → 终态回写 → 三态验收 → 专家评审（见「六」）
+- [x] core：`suggested_agent` 在 state 中作为 `assigned_agent` 别名，对齐平台任务详情弹窗（`180f9d9`）
+- [x] core：目标全部任务 done 时守护自动置 `goals.status=done`（`92d231a`）
+- [x] core：不再对 `waiting_human` 自动催促（避免刷屏）（`dd408e5`）
 
 ### 接口决策（已定，勿反复）
 - [x] 设计往返：确定"Python 服务发给自己"+ planner 标志 + agent 决策/派活的整体架构
@@ -94,6 +99,9 @@
 - [x] 快照缓存表 `planner_state`（展示用，非真相）
 - [x] 「规划器」页重做：目标列表 + 新建/编辑/归档表单 + 任务树 + 催促/通过拆解/重新拆解/验收按钮
 - [x] **两侧联调通过**：core 连 WS → `state online:true` → `POST op goal.create` → 快照回推 → `GET /ops` 显示 `ok:true`（`data/integration_smoke.py`）
+- [x] 规划器页展示 `plan_status` 徽标（草稿/已通过），`通过拆解` 仅 draft 显示（dev `3ee329a`）
+- [x] 专家工作区可为 planner 自身（自评审）：选择器不再排除自身，标注「本工作区（自评审）」（dev `20a12c4`）
+- [x] 任务树界面优化：任务列只显示可点击标题 + 详情弹窗（描述/依赖/建议与实际执行 agent/验收类型/状态/验收结果）、依赖列只显示标题；「实际执行 agent」暂显示 `-`（dev `7e0e3dd` + `aec36b6`）
 
 ---
 
@@ -105,23 +113,23 @@
 - [x] 观察者改**通配订阅 `*`**（worker 任务挂在目标工作区名下，必须订阅名下全部工作区）
 - [x] 单测覆盖（`test_daemon.py` / `test_dispatch.py`）
 
-### P2 人工/自动验收（已完成核心 2026-10-02）
-- [x] `apply_acceptance`：manual → `waiting_human`；auto 配 `accept_command` → 执行；否则直接 done
+### P2 人工/自动验收（已完成 2026-10-02）
+- [x] `apply_acceptance`：manual → `waiting_human`；expert → `waiting_expert`；auto 配 `accept_command` → 执行；否则直接 done
 - [x] daemon worker 终态自动调用 `apply_acceptance`（`asyncio.to_thread`，不阻塞事件循环）
-- [x] 提示词 + AGENTS playbook 指引 agent 对 `waiting_human` 发起提问，按结果 `task set done/failed`
-- [ ] 平台 `input-required` 提问/应答**端到端实测**（依赖独立会话，见 P3）
+- [x] 人工验收：`waiting_human` 在平台页显示「通过/拒绝」，`task.accept/reject` 仅对待验收任务生效（终态幂等）——已在真实目标上由人验收通过
+- [x] 专家验收：`waiting_expert` → planner agent 用 `planner report` 汇总 → 专家裁决/自评审
 
-### P3 守护端到端
-- [ ] 用独立 opencode 会话跑一次真实闭环：建目标 → 注入 → 拆解 → 派活 → 回写 → 页面展示
-- [ ] `planner serve` 常驻冒烟（--no-send 先观察，再 send）
+### P3 守护端到端（已完成 2026-10-02）
+- [x] 真实闭环：建目标 →（自评审/专家）确认成功标准 → 拆解 → 人工审批 → 守护 tick 注入 → 派发 worker → 终态回写 → 三态验收 → 专家评审 → 目标 done（两个目标均 100%）
+- [x] `planner serve` 常驻上线（含 `/ws/planner` 控制通道 + `/ws/nexus` 通配观察 + tick），平台显示 planner `online`
 
 ### P4 平台页增强
 - [x] 控制通道协议设计：`docs/planner-platform-protocol.md`（core↔平台 WS + REST 契约）
 - [x] core 侧：`platform/planner_ws.py` + `PlannerService.handle_op`（幂等）+ `planner ws` 命令
 - [x] 平台侧：`/ws/planner` + `/api/planner/{wid}/state|op|ops` + 快照缓存 + PlannerPage 重做（dev `614de2f`，已重启验证）
 - [x] 联调：core 连 WS → 网页建目标（REST op）→ core 落库 → 快照回推 → 页面可显示任务树
-- [x] core 配合修正：state 带 `progress:{done,total}`；`task.accept/reject` 仅限 `waiting_human`（终态幂等成功）
-- [ ] 平台页展示 `plan_status`（draft/approved）徽标，并据此显示「通过拆解」（新增字段，需平台侧小改）
+- [x] core 配合修正：state 带 `progress:{done,total}`；`task.accept/reject` 仅限待验收（终态幂等成功）
+- [x] 平台页展示 `plan_status`（draft/approved）徽标，并据此显示「通过拆解」（dev `3ee329a`）
 
 ### P5 工程化
 - [x] `planner status` 跨目标概览；`planner ping` 检查平台 MCP + `/ws/planner` 连通
@@ -154,3 +162,26 @@
 | `8de9de9` | 本地 MCP guard（后被移除） |
 | `419aaf1` | 移除本地 MCP；CLI 为接口；AGENTS.md playbook + CLAUDE.md |
 | `7078431` | worker 结果回写本地任务 + 验收策略（manual→waiting_human / auto 命令）；新增 TODO.md |
+| `c580cf6` | 平台控制通道（WS `/ws/planner`）+ `handle_op` 幂等 + 协议文档 |
+| `ec65ff1` | state 带 progress；`task.accept/reject` 严格待验收；联调验证 |
+| `7aef00e` | `status`/`ping`、serve 冒烟、CI |
+| `8a77b25` | 拆解人工审批 `plan_status`（draft/approved）+ 守护门控 |
+| `b5d51c9` | 专家工作区（expert 拆解 + 专家验收点） |
+| `2e3def1` | `plan apply --replace` 整树替换 + `planner report` 验收报告 |
+| `751416b` | `goal.delete`（硬删除级联）+ `goal.activate`（归档恢复） |
+| `257ef39` | 优先级 高/中/低(2/1/0) + 成功标准 `criteria_confirmed`（专家确认） |
+| `15fe63e` | 专家=自身（自评审）分支，绕开自我派单 |
+| `dd408e5` | 不再自动催促 `waiting_human` |
+| `180f9d9` | state 暴露 `suggested_agent` 别名（对齐平台弹窗） |
+| `92d231a` | 目标全部任务 done → 自动置 `goals.status=done` |
+
+---
+
+## 六、真实端到端实测记录（2026-10-02）
+
+两个真实目标在平台「规划器」页可见、core 常驻 `online` 的状态下跑通了完整闭环：
+
+1. **规划器功能开发**（`goal_d304b35677ef`，专家=本工作区/自评审）：自评审确认成功标准 → 拆解 10 任务 → 人工「通过拆解」→ 守护 tick 逐层注入/执行/核对 → `端到端实测` 人工验收 → `专家评审` 自评审 **accepted** → **done 10/10**。
+2. **规划器前端，任务树界面优化**（`goal_ae2593fa9ef5`，专家=本工作区/自评审）：拆解 3 任务 → 审批 → 派发给 `agent_swarm` 工作区（自动带"先压缩上下文"前导）→ worker 终态经 `/ws/nexus` 回写 → 构建/联调验证 → `专家评审` 自评审 **accepted** → **done 3/3**。
+
+链路要点：建目标 →（专家/自评审）确认成功标准 + 拆解 → `plan_status=draft` 审批门控 → 平台「通过拆解」→ 守护按依赖逐层注入/派发 → worker 终态回写本地任务 → 自动/人工/专家三态验收 → 目标全部任务完成后自动 `done`。

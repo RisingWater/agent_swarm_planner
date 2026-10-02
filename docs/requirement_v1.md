@@ -307,3 +307,39 @@
 - 本文档作为实现依据
 
 ---
+
+## 14. 实现说明与变更（2026-10-02）
+
+> v1 为设计基线；本节记录**实际落地**与 v1 的差异、补充字段与验收结果（详细进度见 `TODO.md`，
+> 双方接口契约见 `docs/planner-platform-protocol.md`）。
+
+### 14.1 与 v1 的关键落地决策
+1. **平台通信**：v1 设想平台新增 `goal.create`/`plan.snapshot` 等专用消息；实际落地为
+   **core 主动连接平台的 WebSocket 控制通道 `/ws/planner`**（内网友好，平台无需访问 core 端口），
+   操作以 `op`/`op_result`/`state` 帧交互（详见协议文档）。
+2. **planner 侧实现**：Python `planner-core`（SQLite/DAG/调度/三态验收/提示词注入）；
+   面向 agent 的接口定为 **CLI**（零安装、harness 无关），智能由用户在 planner 工作区运行的
+   任意 agent（opencode/claude/dsh）提供——**本仓库不调用任何 LLM**。
+3. **专家工作区（新增）**：每个目标可指定一个专家工作区，负责确认**成功标准**、**拆解任务树**
+   并设**专家验收点**；planner agent 与之沟通并调度 worker，到点用验收报告请专家裁决，专家可
+   用整树替换调整计划。**专家 = planner 自身时不走 A2A（避免自我派单），由 planner agent 自评审。**
+4. **三态验收**：`auto`（跑 `accept_command` 测试/lint/构建抓 anchor）/ `manual`（人验收）/
+   `expert`（专家验收点）；新增任务状态 `waiting_expert`。
+5. **目标生命周期扩展**：归档（软隐藏，可 `activate` 恢复）、硬删除（级联）、催促（手动 nudge）、
+   拆解审批 `plan_status`（`draft` 不派发 / `approved` 放行）、成功标准 `criteria_confirmed`。
+6. **字段约定**：优先级 `高=2/中=1/低=0`；`deadline` 空串 = 无截止。
+7. **幂等**：平台操作 `op_id` 去重（`operations` 表）；A2A 以 `taskId` 去重。
+
+### 14.2 数据模型补充（相对 §8）
+- `goals` 增：`plan_status`、`criteria_confirmed`、`expert_workspace_id`、`expert_name`。
+- `tasks.acceptance_type` 增取值 `expert`；`status` 增取值 `waiting_expert`。
+- 新增桥接表 `platform_tasks`（A2A 任务 ↔ 本地实体）、`pending_inputs`（requestId 路由）。
+- 平台侧新增 `planner_state`（展示缓存，非真相）。
+
+### 14.3 交付物状态（对照 §13）
+- [x] 项目代码（planner-core + 平台侧改造，均在各自仓库）
+- [x] SQLite schema（含上述迁移）
+- [x] 控制通道协议定义（`docs/planner-platform-protocol.md`）
+- [x] 平台注册（`role=planner` + 三 harness `/swarm-add-planner`）与 A2A 调用封装
+- [x] 平台侧：目标管理、任务树视图、验收入口（「规划器」页）
+- [x] 端到端验收：两个真实目标（功能开发 10/10、前端任务树优化 3/3）均完成

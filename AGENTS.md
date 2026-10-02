@@ -18,7 +18,9 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install pytest pytest-asyncio   # dev
 .\.venv\Scripts\python.exe -m pytest -q                           # tests (asyncio_mode=auto)
 .\.venv\Scripts\python.exe -m planner_core info                   # resolved config (key masked)
-.\.venv\Scripts\python.exe -m planner_core init                   # create SQLite
+.\.venv\Scripts\python.exe -m planner_core status                 # cross-goal overview
+.\.venv\Scripts\python.exe -m planner_core ping                   # platform MCP + /ws/planner
+.\.venv\Scripts\python.exe -m planner_core serve                  # daemon: observe+tick+control WS
 ```
 
 On Windows/PowerShell, Chinese output/args get mojibake unless you set
@@ -54,13 +56,17 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
    expert is THIS workspace, verify it yourself (no `a2a_call`). Never dispatch an expert
    acceptance point as a normal worker task.**
 6. Failures/blocks: `planner plan recover <goal_id>`.
-7. Human acceptance: tasks in `waiting_human` (or `acceptance_type=manual`) need a human
-   decision — ask via your native question/permission (the platform surfaces it as
-   `input-required`); on approval `planner task set <id> done`, on reject `... failed`.
-8. Finish: `planner plan markdown <goal_id>` and use that output as your reply — the platform
+7. Human acceptance: `acceptance_type=manual` tasks that finish go to `waiting_human`; the
+   platform "Planner" page shows 通过/拒绝 for them (`task.accept`/`task.reject` ops, terminal
+   states are idempotent). The daemon does **not** auto-nudge `waiting_human` (nothing for the
+   agent to do — the human acts on the page). If the page isn't available, ask the human and
+   then `planner task set <id> done|failed`.
+8. Goal completion: when every task of a goal is `done`, `planner serve`'s tick automatically
+   sets `goals.status=done`.
+9. Finish: `planner plan markdown <goal_id>` and use that output as your reply — the platform
    "Planner" page renders it as the task tree.
-9. Discovery: `planner workspaces [--all]` lists visible workspaces (id/role/status/name) to
-   pick an expert or a worker.
+10. Discovery: `planner workspaces [--all]` lists visible workspaces (id/role/status/name) to
+    pick an expert or a worker.
 
 ## Config resolution (in order)
 
@@ -89,15 +95,19 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
 
 - `planner_core/` — Python core. `engine/dag.py` + `engine/prompt.py` are pure and unit-tested.
 - `planner_core/platform/a2a_client.py` — `POST /a2a/{wid}` `message/send` / `message/stream`.
-- `planner_core/platform/observer.py` — `/ws/nexus` subscription.
+- `planner_core/platform/observer.py` — `/ws/nexus` subscription (subscribes `"*"` to see worker terminal states).
+- `planner_core/platform/planner_ws.py` — `WS /ws/planner` control channel (ops in, state out).
 - `planner_core/platform/mcp_client.py` — minimal stateless `/mcp/` client (`tools/call`
-  works without `initialize`); backs `planner_dispatch`, which mechanically prepends
-  `PLANNER_DISPATCH_PREAMBLE` ("compress context first") to every worker dispatch.
-- `planner_core/service/daemon.py` — `planner serve`: observer + tick (refresh ready, throttled nudge).
+  works without `initialize`); backs `planner register` and `planner_dispatch`, which mechanically
+  prepends `PLANNER_DISPATCH_PREAMBLE` ("compress context first") to every worker dispatch.
+- `planner_core/service/orchestrator.py` — goals/tasks CRUD, `handle_op` (idempotent), `apply_plan`,
+  `nudge`, `report`, three-state `apply_acceptance`.
+- `planner_core/service/daemon.py` — `planner serve`: observer + tick (refresh ready, throttled
+  nudge, auto-complete goal, no nudge for `waiting_human`) + control WS.
 - `planner_core/engine/acceptance.py` — runs `execution_spec.accept_command`.
 - `tests/` — pytest. `data/` and `.env` are gitignored.
-- `docs/requirement_v1.md` — original spec (Chinese); use its exact DB columns, task-status
-  enum (`pending/ready/running/done/failed/blocked/waiting_human`), and message concepts.
+- `docs/requirement_v1.md` — original spec (Chinese); `docs/planner-platform-protocol.md` — core↔platform contract.
+- `TODO.md` — running progress/handoff doc (read it before starting work); `README.md` — user overview.
 
 ## Conventions
 
