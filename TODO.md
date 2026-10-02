@@ -1,7 +1,7 @@
 # agent-swarm-planner 开发进度 TODO
 
 > 持续更新的进度/交接文档。**只增不删**：新进展往下追加；已有条目只改勾选状态。
-> 更新时间：2026-10-02 · 当前 HEAD：`419aaf1`（planner）/ `e8b224e`（agent_swarm dev）
+> 更新时间：2026-10-02 · 当前 HEAD：`7078431`（planner）/ `e8b224e`（agent_swarm dev）
 
 ## 项目一句话
 
@@ -11,10 +11,10 @@
 
 ## 进度快照
 
-- ✅ planner-core（确定性内核）M0–M3 主体完成，35 例单测通过；worker 结果已能回写本地任务。
+- ✅ planner-core（确定性内核）M0–M3 主体完成，38 例单测通过；worker 结果回写 + 验收策略已接。
 - ✅ agent 接口定为 **CLI**（零安装、harness 无关）；本地 MCP 已按决策移除。
 - ✅ 平台侧：`role` 字段 + `PlannerPage`（只读）+ 三 harness `/swarm-add-planner`，服务端已重启生效。
-- ⏳ 未完成：人工验收闭环、平台页写操作、端到端实测、守护常驻冒烟。
+- ⏳ 未完成：平台页写操作、端到端实测、守护常驻冒烟、人工验收提问联调。
 
 ---
 
@@ -124,3 +124,4 @@
 | `8ba8b7c` | planner 自注册（`workspace_add(role=planner)`） |
 | `8de9de9` | 本地 MCP guard（后被移除） |
 | `419aaf1` | 移除本地 MCP；CLI 为接口；AGENTS.md playbook + CLAUDE.md |
+| `7078431` | worker 结果回写本地任务 + 验收策略（manual→waiting_human / auto 命令）；新增 TODO.md |
