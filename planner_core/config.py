@@ -16,8 +16,19 @@ from pathlib import Path
 
 
 def project_root() -> Path:
-    """本仓库根目录（planner_core 的上一级）。"""
-    return Path(__file__).resolve().parent.parent
+    """解析 planner 工作根目录。
+
+    - `PLANNER_HOME` 优先；
+    - 源码仓库（含 `planner_core/` + `pyproject.toml`）→ 仓库根（开发用法不变）；
+    - 已安装（pipx / site-packages）→ 当前工作目录，`planner` 命令按"当前目录即项目"工作。
+    """
+    env = os.environ.get("PLANNER_HOME")
+    if env:
+        return Path(env).expanduser().resolve()
+    pkg_parent = Path(__file__).resolve().parent.parent
+    if (pkg_parent / "planner_core").is_dir() and (pkg_parent / "pyproject.toml").is_file():
+        return pkg_parent
+    return Path.cwd()
 
 
 def _load_dotenv(path: Path) -> dict[str, str]:

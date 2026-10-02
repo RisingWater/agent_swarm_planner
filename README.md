@@ -31,27 +31,35 @@ agent_swarm 平台（规划器页：目标/任务树/审批/验收）
 
 ## 快速开始
 
+> **正式安装**（pipx + 全局 `planner` 命令 + 开机自启）见 [`INSTALL.md`](INSTALL.md)，附一键脚本
+> `install.sh` / `install.ps1`。下面是最短的开发用法。
+
 ```powershell
 # 1) 依赖（Python 3.11+）
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pip install pytest pytest-asyncio   # 开发
 
-# 2) 配置：复制 .env.example 为 .env，填 server / api key
+# 2) 配置：复制 .env.example 为 .env，填 server / api key（或跑 `planner setup` 交互向导）
 #    未填时自动读取 ~/.config/opencode/agent-swarm.json 与 .agent_swarm/workspace.md
 
 # 3) 初始化并常驻（含平台控制通道）
 .\.venv\Scripts\python.exe -m planner_core info
 .\.venv\Scripts\python.exe -m planner_core init
-.\.venv\Scripts\python.exe -m planner_core serve      # 常驻：观察 + 调度 + 控制通道
+.\.venv\Scripts\python.exe -m planner_core doctor              # 自检
+.\.venv\Scripts\python.exe -m planner_core serve              # 常驻：观察 + 调度 + 控制通道
 ```
 
-`planner` 等价于 `.\.venv\Scripts\python.exe -m planner_core`。
+`planner` 等价于 `.\.venv\Scripts\python.exe -m planner_core`；`planner` 以**当前目录为工作根**
+（`.env`、`.agent_swarm/workspace.md`、`data/planner.db` 均在其下，可用 `PLANNER_HOME` 覆盖）。
 
 ## 常用命令
 
 | 命令 | 说明 |
 |---|---|
+| `planner setup` | 配置向导（写 `.env`、建库、校验平台连通） |
+| `planner doctor [--offline]` | 安装自检（Python/依赖/配置/DB/平台/控制通道） |
+| `planner service install\|status\|uninstall\|print` | 开机自启（Linux systemd / Windows 计划任务 / macOS LaunchAgent） |
 | `planner info` / `planner status` | 配置（隐藏密钥）/ 跨目标概览 |
 | `planner ping` | 检查平台 MCP 与控制通道 `/ws/planner` 连通 |
 | `planner workspaces [--all]` | 列出平台可见工作区（选专家/派活用） |

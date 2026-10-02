@@ -296,6 +296,154 @@ def cmd_register(args: argparse.Namespace) -> int:
     return 0
 
 
+def _prompt(label: str, default: str = "") -> str:
+    tip = f" [{default}]" if default else ""
+    try:
+        val = input(f"{label}{tip}: ").strip()
+    except EOFError:
+        val = ""
+    return val or default
+
+
+def _platform_checks(settings) -> list[dict]:
+    """联网预检：MCP 可达 + 本工作区 role + 控制通道握手。"""
+    import websockets
+
+    from .platform.mcp_client import MCPClient
+    from .platform.planner_ws import ws_url
+
+    checks: list[dict] = []
+    try:
+        workspaces = MCPClient(settings).list_workspaces(include_offline=True)
+        me = next((w for w in workspaces if w.get("workspace_id") == settings.workspace_id), None)
+        checks.append({"name": "platform.mcp", "ok": True, "detail": f"OK（{len(workspaces)} 个工作区）"})
+        if settings.workspace_id:
+            checks.append({
+                "name": "workspace.role", "ok": me is not None,
+                "detail": (f"{me.get('name')} role={me.get('role') or 'agent'}"
+                           if me else "未找到本工作区（检查 PLANNER_WORKSPACE_ID / .agent_swarm/workspace.md）"),
+            })
+    except Exception as e:  # noqa: BLE001
+        checks.append({"name": "platform.mcp", "ok": False, "detail": f"FAIL：{e}"})
+
+    if settings.server and settings.api_key and settings.workspace_id:
+        async def _hello() -> str:
+            url = ws_url(settings.server, settings.ws_path)
+            async with websockets.connect(url, ping_interval=None) as sock:
+                await sock.send(json.dumps({"type": "hello", "apikey": settings.api_key,
+                                            "workspace_id": settings.workspace_id}))
+                hello = json.loads(await asyncio.wait_for(sock.recv(), timeout=5))
+                return str(hello.get("type"))
+
+        try:
+            mtype = asyncio.run(_hello())
+            checks.append({"name": "control.ws", "ok": mtype == "hello_ok", "detail": mtype})
+        except Exception as e:  # noqa: BLE001
+            checks.append({"name": "control.ws", "ok": False, "detail": f"FAIL：{e}"})
+    return checks
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    from . import config as config_mod
+    from .service import installer
+
+    root = Path(args.home).expanduser().resolve() if args.home else config_mod.project_root()
+    env_path = root / ".env"
+    defaults = config_mod.load_settings(root)
+    interactive = sys.stdin.isatty() and not args.yes
+
+    print(f"planner 配置向导（工作根目录：{root}）")
+    server = args.server or (
+        _prompt("平台地址", defaults.server or installer.DEFAULT_SERVER) if interactive
+        else (defaults.server or installer.DEFAULT_SERVER))
+    api_key = args.api_key or (
+        _prompt("API Key", defaults.api_key) if interactive else defaults.api_key)
+    workspace_id = args.workspace_id or (
+        _prompt("planner 工作区 ID（可留空，稍后由 /swarm-add-planner 写入 .agent_swarm/workspace.md）",
+                defaults.workspace_id) if interactive else defaults.workspace_id)
+
+    updates = {"AGENT_SWARM_SERVER": server, "AGENT_SWARM_API_KEY": api_key}
+    if workspace_id:
+        updates["PLANNER_WORKSPACE_ID"] = workspace_id
+    installer.upsert_dotenv(env_path, updates)
+    print(f"已写入配置：{env_path}")
+
+    settings = config_mod.load_settings(root)
+    svc = PlannerService(settings)
+    svc.init()
+    print(f"已初始化数据库：{settings.db_path}")
+
+    if not args.no_verify and server and api_key:
+        for c in _platform_checks(settings):
+            print(("OK  " if c["ok"] else "FAIL"), c["name"], c["detail"])
+
+    print("\n下一步：")
+    print("  1) 在 planner 工作区目录用 harness 执行 /swarm-add-planner（拿到 WORKSPACE_ID，写入 .agent_swarm/workspace.md）")
+    print("  2) planner doctor         # 自检配置/平台/控制通道")
+    print("  3) planner service install  # 注册开机自启（可用 --scope system 装成系统服务）")
+    return 0
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    from .service import installer
+
+    settings = load_settings()
+    checks = installer.static_checks(settings)
+    if not args.offline:
+        checks += _platform_checks(settings)
+    print(installer.format_checks(checks))
+    bad = [c for c in checks if not c["ok"]]
+    print()
+    print(f"总结：{len(checks) - len(bad)}/{len(checks)} 项通过"
+          + ("" if not bad else "，请修复上面 FAIL 项"))
+    return 1 if bad else 0
+
+
+def cmd_service(args: argparse.Namespace) -> int:
+    from .service import installer
+
+    root = Path(args.home).expanduser().resolve() if args.home else load_settings().root
+    scope, name = args.scope, args.name
+
+    if args.service_cmd == "print":
+        plan = installer.service_plan(root, scope=scope, name=name)
+        head = {k: plan[k] for k in ("os", "scope", "name", "primary", "serve_cmd", "workdir")}
+        print(json.dumps(head, ensure_ascii=False, indent=2))
+        for path, content in plan["files"].items():
+            print(f"\n===== {path} =====\n{content}")
+        print("===== 命令 =====")
+        for cmd in plan["commands"]:
+            print(" ", " ".join(cmd))
+        return 0
+
+    if args.service_cmd == "status":
+        plan = installer.service_plan(root, scope=scope, name=name)
+        exists = Path(plan["primary"]).exists()
+        print(f"服务名：{plan['name']}  系统：{plan['os']}  产物：{plan['primary']}  "
+              f"{'已安装' if exists else '未安装'}")
+        if plan["os"] == "linux":
+            cli = ["systemctl"] + (["--user"] if scope != "system" else [])
+            r = installer._run(cli + ["is-active", f"{name}.service"])
+            print("is-active:", r["out"] or r["err"])
+        return 0
+
+    if args.service_cmd == "install":
+        result = installer.install_service(root, scope=scope, name=name)
+    elif args.service_cmd == "uninstall":
+        result = installer.uninstall_service(root, scope=scope, name=name)
+    else:
+        print("未知 service 子命令", file=sys.stderr)
+        return 2
+
+    for path in result.get("written", []):
+        print("已写入", path)
+    for path in result.get("removed", []):
+        print("已删除", path)
+    for r in result["commands"]:
+        print(("OK  " if r["ok"] else "FAIL"), r["cmd"], (r["out"] or r["err"])[:200])
+    return 0
+
+
 def cmd_accept(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -476,6 +624,32 @@ def build_parser() -> argparse.ArgumentParser:
     sv.set_defaults(func=cmd_serve)
 
     sub.add_parser("ws", help="只启动平台控制通道（WS /ws/planner）").set_defaults(func=cmd_ws)
+
+    st = sub.add_parser("setup", help="配置向导：写 .env、初始化数据库、校验连通")
+    st.add_argument("--server", default="", help="平台地址（默认沿用/127.0.0.1:8700）")
+    st.add_argument("--api-key", dest="api_key", default="")
+    st.add_argument("--workspace-id", dest="workspace_id", default="")
+    st.add_argument("--home", default="", help="工作根目录（默认当前目录/仓库根）")
+    st.add_argument("--no-verify", action="store_true", help="跳过连通性校验")
+    st.add_argument("--yes", action="store_true", help="非交互：使用已有/默认值")
+    st.set_defaults(func=cmd_setup)
+
+    dc = sub.add_parser("doctor", help="安装自检：Python/依赖/配置/DB/平台/控制通道")
+    dc.add_argument("--offline", action="store_true", help="跳过联网检查")
+    dc.set_defaults(func=cmd_doctor)
+
+    se = sub.add_parser("service", help="开机自启：install/uninstall/status/print")
+    sesub = se.add_subparsers(dest="service_cmd", required=True)
+    for svc_name, svc_help in (("install", "安装并启用开机自启"),
+                               ("uninstall", "卸载开机自启"),
+                               ("status", "查看自启状态"),
+                               ("print", "仅打印将写入的文件与命令")):
+        sp = sesub.add_parser(svc_name, help=svc_help)
+        sp.add_argument("--scope", choices=["user", "system"], default="user",
+                        help="user=当前用户（默认，免 root）；system=系统级")
+        sp.add_argument("--name", default="agent-swarm-planner")
+        sp.add_argument("--home", default="", help="工作根目录（默认当前目录/仓库根）")
+        sp.set_defaults(func=cmd_service)
     return p
 
 

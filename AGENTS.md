@@ -19,6 +19,9 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest -q                           # tests (asyncio_mode=auto)
 .\.venv\Scripts\python.exe -m planner_core info                   # resolved config (key masked)
 .\.venv\Scripts\python.exe -m planner_core status                 # cross-goal overview
+.\.venv\Scripts\python.exe -m planner_core setup                  # install wizard (.env + db + verify)
+.\.venv\Scripts\python.exe -m planner_core doctor [--offline]     # install self-check
+.\.venv\Scripts\python.exe -m planner_core service install|status|uninstall|print  # autostart
 .\.venv\Scripts\python.exe -m planner_core ping                   # platform MCP + /ws/planner
 .\.venv\Scripts\python.exe -m planner_core serve                  # daemon: observe+tick+control WS
 ```
@@ -104,10 +107,14 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
   `nudge`, `report`, three-state `apply_acceptance`.
 - `planner_core/service/daemon.py` — `planner serve`: observer + tick (refresh ready, throttled
   nudge, auto-complete goal, no nudge for `waiting_human`) + control WS.
+- `planner_core/service/installer.py` — install/deploy helpers: `.env` upsert, autostart artifacts
+  (systemd / launchd / Windows scheduled task), `doctor` static checks (backs `planner setup|doctor|service`).
 - `planner_core/engine/acceptance.py` — runs `execution_spec.accept_command`.
 - `tests/` — pytest. `data/` and `.env` are gitignored.
 - `docs/requirement_v1.md` — original spec (Chinese); `docs/planner-platform-protocol.md` — core↔platform contract.
-- `TODO.md` — running progress/handoff doc (read it before starting work); `README.md` — user overview.
+- `TODO.md` — running progress/handoff doc (read it before starting work); `README.md` — user overview;
+  `INSTALL.md` + `install.sh`/`install.ps1` — install/deploy guide.
+- Config root: `PLANNER_HOME` > source-repo root > current working directory (`planner` treats cwd as the project).
 
 ## Conventions
 

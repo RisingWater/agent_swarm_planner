@@ -1,7 +1,7 @@
 # agent-swarm-planner 开发进度 TODO
 
 > 持续更新的进度/交接文档。**只增不删**：新进展往下追加；已有条目只改勾选状态。
-> 更新时间：2026-10-02 · 当前 HEAD：`92d231a`（planner）/ `aec36b6`（agent_swarm dev）
+> 更新时间：2026-10-02 · 当前 HEAD：`994e142`（planner）/ `64f8b3c`（agent_swarm dev）
 
 ## 项目一句话
 
@@ -185,3 +185,25 @@
 2. **规划器前端，任务树界面优化**（`goal_ae2593fa9ef5`，专家=本工作区/自评审）：拆解 3 任务 → 审批 → 派发给 `agent_swarm` 工作区（自动带"先压缩上下文"前导）→ worker 终态经 `/ws/nexus` 回写 → 构建/联调验证 → `专家评审` 自评审 **accepted** → **done 3/3**。
 
 链路要点：建目标 →（专家/自评审）确认成功标准 + 拆解 → `plan_status=draft` 审批门控 → 平台「通过拆解」→ 守护按依赖逐层注入/派发 → worker 终态回写本地任务 → 自动/人工/专家三态验收 → 目标全部任务完成后自动 `done`。
+
+---
+
+## 七、安装与部署（2026-10-02）
+
+面向"真实安装"补齐可安装/常驻/自检体验（`planner` 命令；`setup`/`doctor`/`service`）：
+
+- [x] `planner setup`：交互/非交互写 `.env`（server/api key/workspace id）+ 建库 + 连通校验
+- [x] `planner doctor [--offline]`：Python/依赖/配置/DB/平台 MCP/控制通道 逐项自检
+- [x] `planner service install|uninstall|status|print`：开机自启产物生成——Linux systemd（user/system）、Windows 计划任务（ONLOGON）、macOS LaunchAgent
+- [x] 配置根解析改为 `PLANNER_HOME` > 源码仓库根 > 当前目录（pipx 安装后以"当前目录即项目"工作）
+- [x] `INSTALL.md` + `install.sh` / `install.ps1` 一键脚本；`.env.example` 补 `PLANNER_HOME`
+- [x] 单测 `tests/test_installer.py`（12 例；全套 **80 passed**）
+
+> 关键约束：守护与 harness 都要在线；平台需含 planner 特性（`role=planner` + `/ws/planner` + notify，目前在平台 dev 分支，正式发布前需合入）。
+
+## 八、历史提交（续）
+
+| commit | 内容 |
+|---|---|
+| `528a0a3` | 冻结 planner 待办通知协议（`docs/planner-platform-protocol.md` §7，T1） |
+| `994e142` | core 侧 notify：`goals.plan_rev` + `notified` 表 + `pending_notifications`/`flush_notifications`（T6） |
