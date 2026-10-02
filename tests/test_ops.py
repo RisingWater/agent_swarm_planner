@@ -41,11 +41,24 @@ async def test_task_accept_reject(tmp_path):
     goal = svc.create_goal("g")
     svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}, {"temp_id": "b", "title": "b"}]})
     ta, tb = svc.store.list_tasks(goal.id)
+    svc.store.set_task_status(ta.id, "waiting_human")
+    svc.store.set_task_status(tb.id, "waiting_human")
     assert (await svc.handle_op("task.accept", {"task_id": ta.id, "result": "人验通过"}))["ok"]
     assert svc.store.get_task(ta.id).status == "done"
     assert svc.store.get_task(ta.id).acceptance_result == "人验通过"
     assert (await svc.handle_op("task.reject", {"task_id": tb.id, "reason": "图像不对"}))["ok"]
     assert svc.store.get_task(tb.id).status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_task_accept_requires_waiting_human(tmp_path):
+    svc = _svc(tmp_path)
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    t = svc.store.list_tasks(goal.id)[0]  # pending
+    r = await svc.handle_op("task.accept", {"task_id": t.id})
+    assert r["ok"] is False and "待验收" in r["error"]
+    assert svc.store.get_task(t.id).status == "pending"
 
 
 @pytest.mark.asyncio

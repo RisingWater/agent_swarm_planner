@@ -143,18 +143,27 @@ class PlannerService:
             "ready": [t.id for t in tasks if t.status == "ready"],
         }
 
+    def _goal_dict(self, goal: Goal, tasks: list[Task]) -> dict[str, Any]:
+        d = goal.__dict__.copy()
+        d["progress"] = {"done": sum(1 for t in tasks if t.status == "done"), "total": len(tasks)}
+        return d
+
     def state(self, goal_id: str | None = None) -> dict[str, Any]:
-        """供 agent 读取的完整状态快照。"""
+        """供平台/agent 读取的完整状态快照（字段名与协议文档 §3 对齐）。"""
         if goal_id:
             goal = self.store.get_goal(goal_id)
             if goal is None:
                 raise KeyError(f"目标不存在: {goal_id}")
-            return {"goals": [goal.__dict__], "tasks": [t.__dict__ for t in self.store.list_tasks(goal_id)]}
+            tasks = self.store.list_tasks(goal_id)
+            return {"goals": [self._goal_dict(goal, tasks)], "tasks": [t.__dict__ for t in tasks]}
         goals = self.list_goals()
-        tasks: list[dict[str, Any]] = []
+        out_goals: list[dict[str, Any]] = []
+        out_tasks: list[dict[str, Any]] = []
         for g in goals:
-            tasks.extend(t.__dict__ for t in self.store.list_tasks(g.id))
-        return {"goals": [g.__dict__ for g in goals], "tasks": tasks}
+            ts = self.store.list_tasks(g.id)
+            out_goals.append(self._goal_dict(g, ts))
+            out_tasks.extend(t.__dict__ for t in ts)
+        return {"goals": out_goals, "tasks": out_tasks}
 
     def next_ready(self, goal_id: str) -> list[dict[str, Any]]:
         """提升就绪并返回当前可派发任务的摘要。"""
@@ -288,13 +297,20 @@ class PlannerService:
                 return {"ok": False, "error": f"目标不存在: {gid}"}
             self._schedule_nudge(gid)
             return {"ok": True, "nudged": True}
-        if op == "task.accept":
+        if op in ("task.accept", "task.reject"):
             tid = str(payload.get("task_id") or "")
-            self.store.set_task_status(tid, "done", acceptance_result=str(payload.get("result") or "人工验收通过"))
-            return {"ok": True}
-        if op == "task.reject":
-            tid = str(payload.get("task_id") or "")
-            self.store.set_task_status(tid, "failed", acceptance_result=str(payload.get("reason") or "人工验收拒绝"))
+            task = self.store.get_task(tid)
+            if task is None:
+                return {"ok": False, "error": f"任务不存在: {tid}"}
+            if task.status != "waiting_human":
+                # 只接受“待人工验收”的任务，避免误点；终态视为幂等成功
+                if task.status in ("done", "failed", "blocked"):
+                    return {"ok": True, "note": f"任务已是终态 {task.status}"}
+                return {"ok": False, "error": f"任务不在待验收状态（当前 {task.status}）"}
+            if op == "task.accept":
+                self.store.set_task_status(tid, "done", acceptance_result=str(payload.get("result") or "人工验收通过"))
+            else:
+                self.store.set_task_status(tid, "failed", acceptance_result=str(payload.get("reason") or "人工验收拒绝"))
             return {"ok": True}
         if op == "state.get":
             return {"ok": True, "state": self.state()}

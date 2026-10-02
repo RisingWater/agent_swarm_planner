@@ -61,7 +61,7 @@ core 回执：
 |---|---|---|
 | `GET` | `/api/planner/{wid}/state` | 最近快照 + `online`（WS 是否在线） |
 | `POST` | `/api/planner/{wid}/op` | `{op, payload}` → 生成 `op_id` 经 WS 下发；core 离线则 `409`/排队 |
-| `GET` | `/api/planner/{wid}/events?limit=` | 可选：操作/回执历史 |
+| `GET` | `/api/planner/{wid}/ops?limit=` | 可选：最近操作/回执历史（平台实现采用 `/ops`） |
 
 鉴权：JWT（属主校验）。
 

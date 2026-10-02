@@ -70,10 +70,11 @@
 - [x] 三 harness `/swarm-add-planner`：opencode/claude md 命令、dsh 原生 `register("swarm-add-planner")`；`/swarm-add` 保持无参（`e8b224e`）
 - [x] 服务端重启并验证 role 生效（本工作区已显示 `planner`）
 - [x] 工作区页：规划器置顶 + 紫色「规划器」徽标；顶栏「规划器」入口仅在有 planner 工作区时显示（dev `653cca9`，前端即时生效）
-- [ ] 控制通道 `/ws/planner`（core 主动外连）+ 连接注册表
-- [ ] REST `/api/planner/{wid}/state`（最近快照+online）、`/api/planner/{wid}/op`（下发操作）
-- [ ] 快照缓存表（展示用，非真相）
-- [ ] 「规划器」页重做：**新建目标表单 + 任务树 + 审批/验收按钮**（替换现在的只读 viewer）
+- [x] 控制通道 `/ws/planner`（core 主动外连）+ 连接注册表（dev `614de2f`）
+- [x] REST `/api/planner/{wid}/state`（最近快照+online）、`/api/planner/{wid}/op`、`/ops`
+- [x] 快照缓存表 `planner_state`（展示用，非真相）
+- [x] 「规划器」页重做：目标列表 + 新建/编辑/归档表单 + 任务树 + 催促/通过拆解/重新拆解/验收按钮
+- [x] **两侧联调通过**：core 连 WS → `state online:true` → `POST op goal.create` → 快照回推 → `GET /ops` 显示 `ok:true`（`data/integration_smoke.py`）
 
 ---
 
@@ -98,8 +99,9 @@
 ### P4 平台页增强
 - [x] 控制通道协议设计：`docs/planner-platform-protocol.md`（core↔平台 WS + REST 契约）
 - [x] core 侧：`platform/planner_ws.py` + `PlannerService.handle_op`（幂等）+ `planner ws` 命令
-- [ ] 平台侧：`/ws/planner` + `/api/planner/{wid}/state|op` + 快照缓存 + PlannerPage 重做（派给 agent_swarm 工作区）
-- [ ] 联调：网页建目标 → WS 下发 → core 建目标 → 快照回推 → 页面显示任务树
+- [x] 平台侧：`/ws/planner` + `/api/planner/{wid}/state|op|ops` + 快照缓存 + PlannerPage 重做（dev `614de2f`，已重启验证）
+- [x] 联调：core 连 WS → 网页建目标（REST op）→ core 落库 → 快照回推 → 页面可显示任务树
+- [x] core 配合修正：state 带 `progress:{done,total}`；`task.accept/reject` 仅限 `waiting_human`（终态幂等成功）
 
 ### P5 工程化
 - [ ] `.agent_swarm/workspace.md` 的 `ROLE:` 行是否还需要（本地 MCP 删除后暂无消费者）
