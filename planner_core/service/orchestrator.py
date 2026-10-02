@@ -244,3 +244,34 @@ class PlannerService:
                 line += f"  @{t.assigned_agent}"
             lines.append(line)
         return "\n".join(lines)
+
+    def markdown(self, goal_id: str) -> str:
+        """任务树 markdown 快照（平台「规划器」页读 artifact 渲染用）。"""
+        goal = self.store.get_goal(goal_id)
+        if goal is None:
+            return f"目标不存在: {goal_id}"
+        tasks = self.store.list_tasks(goal_id)
+        done = sum(1 for t in tasks if t.status == "done")
+        by_id = {t.id: t for t in tasks}
+
+        def esc(s: str) -> str:
+            return (s or "").replace("|", "\\|").replace("\n", " ")
+
+        lines = [
+            f"# 目标：{goal.title}",
+            "",
+            f"- 状态：{goal.status} · 优先级：{goal.priority} · 进度：{done}/{len(tasks)}",
+        ]
+        if goal.success_criteria:
+            lines.append(f"- 成功标准：{goal.success_criteria}")
+        if goal.deadline:
+            lines.append(f"- 截止：{goal.deadline}")
+        lines.append("")
+        lines.append("| 任务 | 状态 | 依赖 | 执行 | 验收 |")
+        lines.append("|---|---|---|---|---|")
+        for t in tasks:
+            deps = ", ".join(esc(by_id[d].title) if d in by_id else d for d in t.depends_on)
+            lines.append(
+                f"| {esc(t.title)} | {t.status} | {deps} | {esc(t.assigned_agent)} | {t.acceptance_type} |"
+            )
+        return "\n".join(lines)

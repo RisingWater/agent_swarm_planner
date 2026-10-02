@@ -71,6 +71,8 @@ class Settings:
     nudge_min_interval: int = 60
     max_retry: int = 3
     send_timeout: int = 600
+    # 注入提示词的第 0 步：先压缩上下文，释放窗口再干活（可通过 env 覆盖）
+    first_step: str = "先压缩/总结你自己的上下文（如 opencode 的 /compact），释放上下文窗口后再开始。"
 
     @property
     def a2a_url(self) -> str:
@@ -126,4 +128,6 @@ def load_settings(root: Path | None = None) -> Settings:
         nudge_min_interval=as_int("PLANNER_NUDGE_MIN_INTERVAL", 60),
         max_retry=as_int("PLANNER_MAX_RETRY", 3),
         send_timeout=as_int("PLANNER_SEND_TIMEOUT", 600),
+        first_step=pick("PLANNER_FIRST_STEP")
+        or "先压缩/总结你自己的上下文（如 opencode 的 /compact），释放上下文窗口后再开始。",
     )

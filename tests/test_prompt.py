@@ -20,6 +20,7 @@ def test_prompt_contains_goal_and_tasks():
     assert "可执行" in text
     assert "当前可派发任务" in text
     assert "D:/x" in text
+    assert "压缩" in text  # 第 0 步：先压缩上下文
 
 
 def test_prompt_empty_tree_asks_decompose():

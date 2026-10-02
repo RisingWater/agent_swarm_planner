@@ -145,6 +145,13 @@ def cmd_plan_recover(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plan_markdown(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    print(svc.markdown(args.goal_id))
+    return 0
+
+
 def cmd_nudge(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -266,6 +273,9 @@ def build_parser() -> argparse.ArgumentParser:
     pr = plsub.add_parser("recover", help="失败任务重试/阻塞策略")
     pr.add_argument("goal_id")
     pr.set_defaults(func=cmd_plan_recover)
+    pm = plsub.add_parser("markdown", help="输出任务树 markdown 快照")
+    pm.add_argument("goal_id")
+    pm.set_defaults(func=cmd_plan_markdown)
 
     n = sub.add_parser("nudge", help="组装并投递提示词")
     n.add_argument("goal_id")

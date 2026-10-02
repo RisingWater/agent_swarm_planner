@@ -66,3 +66,17 @@ def test_recover_retries_then_blocks(tmp_path):
     svc.store.set_task_status(task.id, "failed")
     assert svc.recover(goal.id) == [{"task_id": task.id, "action": "blocked"}]
     assert svc.store.get_task(task.id).status == "blocked"
+
+
+def test_markdown_snapshot(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("上线", success_criteria="可访问")
+    svc.apply_plan(goal.id, {"tasks": [
+        {"temp_id": "a", "title": "搭骨架"},
+        {"temp_id": "b", "title": "写 | 测试", "depends_on": ["a"]},
+    ]})
+    md = svc.markdown(goal.id)
+    assert "# 目标：上线" in md
+    assert "| 任务 | 状态 |" in md
+    assert "写 \\| 测试" in md
+    assert "0/2" in md
