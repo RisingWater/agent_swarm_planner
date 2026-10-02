@@ -429,6 +429,9 @@ def cmd_service(args: argparse.Namespace) -> int:
             detail = (r["out"] or r["err"]).strip().splitlines()
             first = detail[0] if detail else ""
             print(("已注册  " if r["ok"] else "未注册  ") + first)
+        else:
+            exists = Path(plan["primary"]).exists()
+            print("已注册（下次登录生效）" if exists else "未注册")
         return 0
 
     if args.service_cmd == "install":

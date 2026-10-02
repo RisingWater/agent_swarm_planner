@@ -1,7 +1,7 @@
 """安装/常驻/自检的纯逻辑 + 平台产物生成。
 
 - `.env` 读写（保留注释与顺序，只改/追加指定键）
-- 各平台开机自启产物：systemd（Linux）、launchd（macOS）、注册表 Run 键 + 启动包装（Windows）
+- 各平台开机自启产物：XDG autostart / systemd（Linux）、launchd（macOS）、注册表 Run 键 + 启动包装（Windows）
 - `setup` 写配置、`doctor` 静态预检
 
 CLI 侧（`planner setup|doctor|service`）调用本模块；产物生成是纯函数，便于单测。
@@ -101,6 +101,21 @@ def systemd_unit(*, serve_cmd: str, workdir: str, env_file: str = "",
     return "\n".join(lines) + "\n"
 
 
+def xdg_autostart(*, serve_cmd: str, workdir: str, name: str = SERVICE_NAME,
+                  description: str = "agent-swarm planner-core daemon") -> str:
+    """XDG 登录自启 .desktop（~/.config/autostart/）。"""
+    return (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        f"Name={name}\n"
+        f"Comment={description}\n"
+        f"Exec={serve_cmd}\n"
+        f"Path={workdir}\n"
+        "Terminal=false\n"
+        "X-GNOME-Autostart-enabled=true\n"
+    )
+
+
 def launchd_plist(*, serve_cmd: str, workdir: str, name: str = SERVICE_NAME,
                   log_dir: str = "") -> str:
     argv = [part for part in serve_cmd.replace('"', "").split(" ") if part]
@@ -170,19 +185,26 @@ def service_plan(root: Path | str, *, osname: str | None = None, scope: str = "u
 
     if osname == "linux":
         if scope == "system":
+            # 系统级：systemd 系统服务（XDG autostart 无系统级等价物）
             unit_dir = Path("/etc/systemd/system")
-            cli = ["systemctl"]
+            unit_path = unit_dir / f"{name}.service"
+            primary = str(unit_path)
+            files[str(unit_path)] = systemd_unit(serve_cmd=serve_cmd, workdir=workdir,
+                                                 env_file=env_file, name=name)
+            commands = [["systemctl", "daemon-reload"], ["systemctl", "enable", "--now", f"{name}.service"]]
+            uninstall_files = [str(unit_path)]
+            uninstall_commands = [["systemctl", "disable", "--now", f"{name}.service"],
+                                  ["systemctl", "daemon-reload"]]
+            status_command = ["systemctl", "is-active", f"{name}.service"]
         else:
-            unit_dir = Path.home() / ".config" / "systemd" / "user"
-            cli = ["systemctl", "--user"]
-        unit_path = unit_dir / f"{name}.service"
-        primary = str(unit_path)
-        files[str(unit_path)] = systemd_unit(serve_cmd=serve_cmd, workdir=workdir,
-                                             env_file=env_file, name=name)
-        commands = [cli + ["daemon-reload"], cli + ["enable", "--now", f"{name}.service"]]
-        uninstall_files = [str(unit_path)]
-        uninstall_commands = [cli + ["disable", "--now", f"{name}.service"], cli + ["daemon-reload"]]
-        status_command = cli + ["is-active", f"{name}.service"]
+            # 用户级：XDG autostart（登录桌面会话时由桌面环境拉起）
+            desktop_path = Path.home() / ".config" / "autostart" / f"{name}.desktop"
+            primary = str(desktop_path)
+            files[str(desktop_path)] = xdg_autostart(serve_cmd=serve_cmd, workdir=workdir, name=name)
+            commands = []          # 下次登录生效；无系统命令
+            uninstall_files = [str(desktop_path)]
+            uninstall_commands = []
+            status_command = []    # 用文件是否存在判断
     elif osname == "macos":
         agent_dir = Path.home() / "Library" / "LaunchAgents"
         plist_path = agent_dir / f"{name}.plist"

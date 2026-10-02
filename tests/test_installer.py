@@ -38,15 +38,25 @@ def test_systemd_unit_content():
     assert "WantedBy=default.target" in unit
 
 
-def test_service_plan_linux_user(tmp_path):
+def test_service_plan_linux_user_xdg(tmp_path):
     plan = installer.service_plan(tmp_path, osname="linux", scope="user",
                                   serve_cmd='"/usr/bin/planner" serve')
     assert plan["os"] == "linux"
-    assert plan["primary"].endswith("agent-swarm-planner.service")
-    assert ".config" in plan["primary"]
-    unit = plan["files"][plan["primary"]]
-    assert "ExecStart=" in unit
-    assert any("enable" in " ".join(c) for c in plan["commands"])
+    assert plan["primary"].replace("\\", "/").endswith("/.config/autostart/agent-swarm-planner.desktop")
+    desktop = plan["files"][plan["primary"]]
+    assert desktop.startswith("[Desktop Entry]")
+    assert 'Exec="/usr/bin/planner" serve' in desktop
+    assert "Path=" in desktop and "X-GNOME-Autostart-enabled=true" in desktop
+    assert plan["commands"] == []          # 无系统命令，登录时由桌面拉起
+    assert plan["status_command"] == []    # 以文件存在判断
+    assert plan["uninstall_files"]
+
+
+def test_xdg_autostart_content():
+    d = installer.xdg_autostart(serve_cmd='"/usr/bin/planner" serve', workdir="/home/u/p")
+    assert d.startswith("[Desktop Entry]") and "Type=Application" in d
+    assert 'Exec="/usr/bin/planner" serve' in d
+    assert "Path=/home/u/p" in d
 
 
 def test_service_plan_linux_system(tmp_path):

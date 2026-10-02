@@ -102,7 +102,8 @@ cd <repo> && opencode      # 或 claude / dsh
 .venv/bin/planner service uninstall
 ```
 
-- **Linux**：`~/.config/systemd/user/agent-swarm-planner.service` + `systemctl --user enable --now`；免登录常驻执行 `loginctl enable-linger $USER`。
+- **Linux（默认 user）**：写 `~/.config/autostart/agent-swarm-planner.desktop`（XDG autostart），**登录桌面会话时**由桌面环境拉起。需立即跑可手动 `planner serve`。
+- **Linux（`--scope system`）**：写 `/etc/systemd/system/agent-swarm-planner.service` + `systemctl enable --now`（需 root；服务器/无桌面场景，可 `loginctl enable-linger` 免登录常驻）。
 - **Windows**：`.agent_swarm\serve.cmd` + 写入注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`（登录自启，当前用户、无需管理员；`--scope system` 写 `HKLM`）。
 - **macOS**：`~/Library/LaunchAgents/agent-swarm-planner.plist` + `launchctl load`。
 

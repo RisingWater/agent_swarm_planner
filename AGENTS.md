@@ -108,7 +108,7 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
 - `planner_core/service/daemon.py` — `planner serve`: observer + tick (refresh ready, throttled
   nudge, auto-complete goal, no nudge for `waiting_human`) + control WS.
 - `planner_core/service/installer.py` — install/deploy helpers: `.env` upsert, autostart artifacts
-  (systemd / launchd / Windows registry Run key), `doctor` static checks (backs `planner setup|doctor|service`).
+  (XDG autostart / systemd / launchd / Windows registry Run key), `doctor` static checks (backs `planner setup|doctor|service`).
 - `planner_core/engine/acceptance.py` — runs `execution_spec.accept_command`.
 - `tests/` — pytest. `data/` and `.env` are gitignored.
 - `docs/requirement_v1.md` — original spec (Chinese); `docs/planner-platform-protocol.md` — core↔platform contract.
