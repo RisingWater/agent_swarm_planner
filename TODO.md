@@ -11,10 +11,11 @@
 
 ## 进度快照
 
-- ✅ planner-core（确定性内核）M0–M3 主体完成，38 例单测通过；worker 结果回写 + 验收策略已接。
+- ✅ planner-core（确定性内核）M0–M3 主体完成，45 例单测通过；worker 结果回写 + 验收策略已接。
 - ✅ agent 接口定为 **CLI**（零安装、harness 无关）；本地 MCP 已按决策移除。
-- ✅ 平台侧：`role` 字段 + `PlannerPage`（只读）+ 三 harness `/swarm-add-planner`，服务端已重启生效。
-- ⏳ 未完成：平台页写操作、端到端实测、守护常驻冒烟、人工验收提问联调。
+- ✅ 平台侧：`role` + 控制通道 `/ws/planner` + 真实「规划器」页（建目标/任务树/审批验收），服务端已重启。
+- ✅ 两侧联调通过；`status`/`ping`/`serve` 冒烟 + CI 就绪。
+- ⏳ 未完成：真实浏览器端到端演示、agent 拆解+worker 派发业务闭环实测。
 
 ---
 
@@ -104,10 +105,11 @@
 - [x] core 配合修正：state 带 `progress:{done,total}`；`task.accept/reject` 仅限 `waiting_human`（终态幂等成功）
 
 ### P5 工程化
-- [ ] `.agent_swarm/workspace.md` 的 `ROLE:` 行是否还需要（本地 MCP 删除后暂无消费者）
-- [ ] `planner` 可执行入口（console script / PATH）说明
-- [ ] `planner status` 全局概览命令（跨目标）
-- [ ] CI（pytest）——目前平台仓也无 CI，视需要
+- [x] `planner status` 跨目标概览；`planner ping` 检查平台 MCP + `/ws/planner` 连通
+- [x] `serve` 常驻冒烟：daemon 启动 + `/ws/planner` 连接成功（`--no-send`，不改状态）
+- [x] CI：`.github/workflows/tests.yml`（push/PR 跑 pytest）
+- [x] `.agent_swarm/workspace.md` 的 `ROLE:` 行保留为本地标记（平台 role 仍以 `workspace_add` 为准）
+- [x] `planner` 命令入口：`planner`（安装）或 `.venv\Scripts\python.exe -m planner_core`（免装）
 
 ---
 

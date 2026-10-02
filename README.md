@@ -52,6 +52,8 @@ python -m venv .venv
 | 命令 | 说明 |
 |---|---|
 | `planner info` | 打印解析后的配置（隐藏密钥） |
+| `planner status` | 跨目标概览（进度/就绪/阻塞/待验收） |
+| `planner ping` | 检查平台 MCP 与控制通道 `/ws/planner` 连通 |
 | `planner init` | 初始化 SQLite |
 | `planner goal add "标题" --desc ... --criteria ...` | 创建目标 |
 | `planner goal list` | 列出目标 |

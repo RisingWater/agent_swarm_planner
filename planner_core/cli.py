@@ -49,6 +49,13 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_status(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    print(svc.overview())
+    return 0
+
+
 def cmd_goal_add(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -168,6 +175,37 @@ def cmd_nudge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ping(args: argparse.Namespace) -> int:
+    import websockets
+
+    from .platform.mcp_client import MCPClient
+    from .platform.planner_ws import ws_url
+
+    settings = load_settings()
+    settings.validate()
+    try:
+        ws = MCPClient(settings).list_workspaces(include_offline=True)
+        me = next((w for w in ws if w.get("workspace_id") == settings.workspace_id), None)
+        print(f"platform MCP : OK ({len(ws)} workspaces)")
+        print(f"my workspace : {me.get('name') if me else '(未找到)'} role={(me or {}).get('role')}")
+    except Exception as e:  # noqa: BLE001
+        print("platform MCP : FAIL", e)
+
+    async def _ws() -> None:
+        url = ws_url(settings.server, settings.ws_path)
+        try:
+            async with websockets.connect(url, ping_interval=None) as sock:
+                await sock.send(json.dumps({"type": "hello", "apikey": settings.api_key,
+                                            "workspace_id": settings.workspace_id}))
+                hello = json.loads(await asyncio.wait_for(sock.recv(), timeout=5))
+                print(f"control WS   : {hello.get('type')} ({settings.ws_path})")
+        except Exception as e:  # noqa: BLE001
+            print("control WS   : FAIL", e)
+
+    asyncio.run(_ws())
+    return 0
+
+
 def cmd_dispatch(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -250,6 +288,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("info", help="打印解析后的配置（隐藏密钥）").set_defaults(func=cmd_info)
     sub.add_parser("init", help="初始化 SQLite").set_defaults(func=cmd_init)
+    sub.add_parser("status", help="跨目标概览").set_defaults(func=cmd_status)
+    sub.add_parser("ping", help="检查平台 MCP + 控制通道连通").set_defaults(func=cmd_ping)
 
     g = sub.add_parser("goal", help="目标管理")
     gsub = g.add_subparsers(dest="goal_cmd", required=True)

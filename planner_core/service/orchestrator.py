@@ -413,6 +413,24 @@ class PlannerService:
         return out
 
     # ---------------------------------------------------------------- 展示
+    def overview(self) -> str:
+        """跨目标概览。"""
+        goals = self.list_goals()
+        if not goals:
+            return "（暂无目标）"
+        lines = []
+        for g in goals:
+            tasks = self.store.list_tasks(g.id)
+            done = sum(1 for t in tasks if t.status == "done")
+            ready = sum(1 for t in tasks if t.status == "ready")
+            blocked = sum(1 for t in tasks if t.status == "blocked")
+            waiting = sum(1 for t in tasks if t.status == "waiting_human")
+            lines.append(
+                f"[{g.id}] {g.status:>8}  {done}/{len(tasks)}  {g.title}"
+                f"  (ready {ready} / blocked {blocked} / waiting {waiting})"
+            )
+        return "\n".join(lines)
+
     def status_text(self, goal_id: str) -> str:
         goal = self.store.get_goal(goal_id)
         if goal is None:
