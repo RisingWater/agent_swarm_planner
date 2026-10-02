@@ -60,7 +60,8 @@
 - [x] 专家调整 → `apply_plan` 回 `plan_status=draft` 等人工再审
 - [x] `plan apply --replace` 整树替换（专家调整计划用）；`planner report` 验收情况报告
 - [x] 回复 agent_swarm 的 4 个确认点（`goal.update` 支持改专家；auto/manual/expert 文案；编辑态放开）
-- [ ] 平台：建目标加**专家工作区选择器**、目标展示专家、任务树标 `expert` 验收点与 `waiting_expert`
+- [x] 平台：建目标加**专家工作区选择器**、目标展示专家、任务树标 `expert` 验收点与 `waiting_expert`（dev `1fb374c`）
+- [x] 平台：目标编辑可改专家（空串=清除）；验收类型文案 `auto/manual/expert` 统一（dev `20406a9`）
 - [ ] 端到端实测：建目标(带专家)→专家拆解→审批→派发→专家验收→裁决/调整
 
 ### 接口决策（已定，勿反复）
