@@ -1,0 +1,51 @@
+import pytest
+
+from planner_core.config import Settings
+from planner_core.service.orchestrator import PlannerService
+
+
+def _service(tmp_path):
+    s = Settings(server="http://x", api_key="as_x", workspace_id="wid",
+                 db_path=tmp_path / "planner.db", root=tmp_path)
+    svc = PlannerService(s)
+    svc.init()
+    return svc
+
+
+def test_apply_plan_resolves_out_of_order_temp_ids(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    created = svc.apply_plan(goal.id, {"tasks": [
+        {"temp_id": "verify", "title": "验收", "depends_on": ["a2a"], "acceptance_type": "manual"},
+        {"temp_id": "scaffold", "title": "搭骨架"},
+        {"temp_id": "a2a", "title": "接 A2A", "depends_on": ["scaffold"]},
+    ]})
+    assert len(created) == 3
+    tasks = {t.title: t for t in svc.store.list_tasks(goal.id)}
+    assert tasks["接 A2A"].depends_on == [tasks["搭骨架"].id]
+    assert tasks["验收"].depends_on == [tasks["接 A2A"].id]
+    # 搭骨架无依赖 → 立即 ready
+    assert tasks["搭骨架"].id in svc.refresh_ready(goal.id)
+
+
+def test_apply_plan_rejects_cycle(tmp_path):
+    from planner_core.engine.dag import DagError
+
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    with pytest.raises(DagError):
+        svc.apply_plan(goal.id, {"tasks": [
+            {"temp_id": "a", "title": "a", "depends_on": ["b"]},
+            {"temp_id": "b", "title": "b", "depends_on": ["a"]},
+        ]})
+
+
+def test_export_goal(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    svc.refresh_ready(goal.id)
+    out = svc.export_goal(goal.id)
+    assert out["goal"]["id"] == goal.id
+    assert len(out["tasks"]) == 1
+    assert len(out["ready"]) == 1

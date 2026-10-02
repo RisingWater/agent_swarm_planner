@@ -1,37 +1,66 @@
 # AGENTS.md
 
-## Project status
+## What this is
 
-**Spec-only / greenfield.** There is no source code, build, or test tooling yet — only `docs/requirement_v1.md` and an empty git history. Do not invent build/lint/test commands; there are none. When adding code, also add the tooling for it.
+Local autonomous **goal → task-tree planner** that drives other agents through the
+external `agent_swarm` platform. It runs as a special workspace on the platform.
 
-## Authoritative spec
+Design rule that overrides everything else: **determinism lives in this repo's Python;
+reasoning lives in an agent.** The Python service must NOT call any LLM / vendor SDK.
+Goal decomposition and replanning are done by whichever agent the user runs in the
+planner workspace (opencode / claude / deepseek / …).
 
-`docs/requirement_v1.md` (written in Chinese) is the implementation basis and the source of truth. Read it before making architectural decisions. Its DB schema, WS message types, task-status enum, and flows are the contract — reuse those exact names rather than inventing variants.
+## Commands
 
-## Stack
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install pytest pytest-asyncio   # dev
+.\.venv\Scripts\python.exe -m pytest -q                           # tests (asyncio_mode=auto)
+.\.venv\Scripts\python.exe -m planner_core info                   # resolved config (key masked)
+.\.venv\Scripts\python.exe -m planner_core init                   # create SQLite
+```
 
-- **Python** (team-confirmed; the spec left it open).
-- **SQLite** for storage.
-- Communication: WS long connection to the platform + an A2A client for dispatching to other agents.
-- Scheduling: plain DAG topological sort — the spec explicitly says no heavy orchestration framework.
-- LLM provider must be configurable (local or remote).
+On Windows/PowerShell, Chinese output/args get mojibake unless you set
+`chcp 65001` + `[Console]::OutputEncoding=[Text.Encoding]::UTF8` + `$env:PYTHONUTF8=1`.
+PowerShell 5.1 has no `&&`; use separate statements.
 
-## Architecture invariants (easy to get wrong)
+## Config resolution (in order)
 
-This project is a **local autonomous planner** that plugs into the external `agent-swarm` platform as a special agent:
+`planner_core/config.py`: process env → project `.env` → `~/.config/opencode/agent-swarm.json`
+(`serverUrl`/`apiKey`) → `.agent_swarm/workspace.md` `WORKSPACE_ID:` line. The workspace is
+already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blindly.
 
-- **Task truth lives locally** in SQLite. The platform stores no task state; it is only a human I/O + display surface.
-- **Works offline**: if the platform is down, the planner still runs; only A2A and notifications degrade.
-- **Idempotency is mandatory**: every platform→planner operation carries an `op_id`; dedupe through the `operations` table so WS reconnects cannot re-create goals or duplicate work.
-- Replanning, decomposition, and scheduling are planner-local. Changing strategy/model must not require platform changes.
+## Architecture facts an agent will otherwise get wrong
 
-## Conventions from the spec
+- **Two processes**: `planner-core` (this repo, deterministic: SQLite/DAG/scheduling/
+  acceptance/prompt injection) and the **planner agent** (any MCP agent, user-run, does
+  the thinking + `a2a_call` dispatch).
+- **Self-injection is the intended mechanism.** The MCP tool `a2a_call` refuses
+  `target == from_workspace`, but the raw gateway `POST /a2a/{wid}` (apikey auth) does
+  NOT. That's how the non-agent Python service sends prompts to its own workspace.
+  Don't "fix" it by adding a separate caller workspace.
+- The planner workspace must be **dispatchable** (fresh heartbeat / TUI open, or
+  `execution_mode="background"`), else the gateway returns 409.
+- Platform contract details live in the `agent_swarm` repo at
+  `D:\wangxu\work\agent_swarm` (`server/nexus_a2a.py` `/ws/plugin`, `/ws/nexus`;
+  `docs/desktop-client-nexus-integration.md`). Read it before touching protocol code.
+  Platform changes (e.g. a planner flag / goal UI) belong to THAT repo — hand tasks to
+  its workspace, and respect its `dev`-branch convention.
 
-- Task status values: `pending / ready / running / done / failed / blocked / waiting_human`.
-- Acceptance types: `auto` (tests/lint/build/logs) and `manual` (hardware, human confirms).
-- WS message names are fixed (e.g. `goal.create`, `plan.snapshot`, `task.need_acceptance`); see spec §9 before adding any new message.
+## Repo layout
 
-## Repository layout
+- `planner_core/` — Python core. `engine/dag.py` + `engine/prompt.py` are pure and unit-tested.
+- `planner_core/platform/a2a_client.py` — `POST /a2a/{wid}` `message/send` / `message/stream`.
+- `planner_core/platform/observer.py` — `/ws/nexus` subscription.
+- `tests/` — pytest. `data/` and `.env` are gitignored.
+- `docs/requirement_v1.md` — original spec (Chinese); use its exact DB columns, task-status
+  enum (`pending/ready/running/done/failed/blocked/waiting_human`), and message concepts.
 
-- `docs/` — requirements/design docs. Add new design docs here.
-- Working directory is `agent_swarm_planner`; the project is named `agent-swarm-planner`. Keep naming consistent within code you add.
+## Conventions
+
+- Comments/docstrings and handoff notes in Chinese, matching `docs/`.
+- Timestamps are UTC everywhere.
+- SQLite: short-lived connections, never hold one across an `await` (platform froze its
+  event loop this way once).
+- `plan apply` accepts out-of-order `temp_id` references (two-pass), then validates the DAG.
