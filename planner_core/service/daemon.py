@@ -100,7 +100,8 @@ class PlannerDaemon:
             return True  # 尚未拆解 → 让 agent 拆解
         if (goal.plan_status or "draft") != "approved":
             return False  # 已拆解但未人工审批 → 等审批，不催 agent 派发
-        return any(t.status in ("ready", "blocked", "failed", "waiting_human", "waiting_expert") for t in tasks)
+        # waiting_human 是等人（平台页验收），不催 agent；waiting_expert 需 agent 汇总送专家/自评审
+        return any(t.status in ("ready", "blocked", "failed", "waiting_expert") for t in tasks)
 
     async def _nudge(self, goal_id: str) -> None:
         try:
