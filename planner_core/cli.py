@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -404,9 +405,13 @@ def cmd_service(args: argparse.Namespace) -> int:
 
     root = Path(args.home).expanduser().resolve() if args.home else load_settings().root
     scope, name = args.scope, args.name
+    kwargs: dict = {"scope": scope, "name": name}
+    serve_cmd = getattr(args, "serve_cmd", "") or os.environ.get("PLANNER_SERVE_CMD", "")
+    if serve_cmd:
+        kwargs["serve_cmd"] = serve_cmd
 
     if args.service_cmd == "print":
-        plan = installer.service_plan(root, scope=scope, name=name)
+        plan = installer.service_plan(root, **kwargs)
         head = {k: plan[k] for k in ("os", "scope", "name", "primary", "serve_cmd", "workdir")}
         print(json.dumps(head, ensure_ascii=False, indent=2))
         for path, content in plan["files"].items():
@@ -417,7 +422,7 @@ def cmd_service(args: argparse.Namespace) -> int:
         return 0
 
     if args.service_cmd == "status":
-        plan = installer.service_plan(root, scope=scope, name=name)
+        plan = installer.service_plan(root, **kwargs)
         exists = Path(plan["primary"]).exists()
         print(f"服务名：{plan['name']}  系统：{plan['os']}  产物：{plan['primary']}  "
               f"{'已安装' if exists else '未安装'}")
@@ -428,9 +433,9 @@ def cmd_service(args: argparse.Namespace) -> int:
         return 0
 
     if args.service_cmd == "install":
-        result = installer.install_service(root, scope=scope, name=name)
+        result = installer.install_service(root, **kwargs)
     elif args.service_cmd == "uninstall":
-        result = installer.uninstall_service(root, scope=scope, name=name)
+        result = installer.uninstall_service(root, **kwargs)
     else:
         print("未知 service 子命令", file=sys.stderr)
         return 2
@@ -649,6 +654,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="user=当前用户（默认，免 root）；system=系统级")
         sp.add_argument("--name", default="agent-swarm-planner")
         sp.add_argument("--home", default="", help="工作根目录（默认当前目录/仓库根）")
+        sp.add_argument("--serve-cmd", dest="serve_cmd", default="",
+                        help="自启执行的命令（默认自动探测；deploy 脚本会传 venv 内 launcher）")
         sp.set_defaults(func=cmd_service)
     return p
 

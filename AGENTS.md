@@ -113,7 +113,7 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
 - `tests/` — pytest. `data/` and `.env` are gitignored.
 - `docs/requirement_v1.md` — original spec (Chinese); `docs/planner-platform-protocol.md` — core↔platform contract.
 - `TODO.md` — running progress/handoff doc (read it before starting work); `README.md` — user overview;
-  `INSTALL.md` + `install.sh`/`install.ps1` — install/deploy guide.
+  `INSTALL.md` — install/deploy guide; `deploy/install.sh`/`install.ps1` — one-shot source installer (venv + pip + autostart).
 - Config root: `PLANNER_HOME` > source-repo root > current working directory (`planner` treats cwd as the project).
 
 ## Conventions

@@ -31,8 +31,9 @@ agent_swarm 平台（规划器页：目标/任务树/审批/验收）
 
 ## 快速开始
 
-> **正式安装**（pipx + 全局 `planner` 命令 + 开机自启）见 [`INSTALL.md`](INSTALL.md)，附一键脚本
-> `install.sh` / `install.ps1`。下面是最短的开发用法。
+> **正式安装**（源码安装：建 venv + pip install + 注册 python 守护开机自启）见 [`INSTALL.md`](INSTALL.md)，
+> 一键脚本在 [`deploy/install.sh`](deploy/install.sh) / [`deploy/install.ps1`](deploy/install.ps1)。
+> 下面是最短的开发用法。
 
 ```powershell
 # 1) 依赖（Python 3.11+）
@@ -57,6 +58,7 @@ python -m venv .venv
 
 | 命令 | 说明 |
 |---|---|
+| `deploy/install.sh` / `deploy\install.ps1` | 一键安装：建 venv + pip install + 注册 python 守护开机自启 |
 | `planner setup` | 配置向导（写 `.env`、建库、校验平台连通） |
 | `planner doctor [--offline]` | 安装自检（Python/依赖/配置/DB/平台/控制通道） |
 | `planner service install\|status\|uninstall\|print` | 开机自启（Linux systemd / Windows 计划任务 / macOS LaunchAgent） |

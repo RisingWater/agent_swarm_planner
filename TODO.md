@@ -195,8 +195,10 @@
 - [x] `planner setup`：交互/非交互写 `.env`（server/api key/workspace id）+ 建库 + 连通校验
 - [x] `planner doctor [--offline]`：Python/依赖/配置/DB/平台 MCP/控制通道 逐项自检
 - [x] `planner service install|uninstall|status|print`：开机自启产物生成——Linux systemd（user/system）、Windows 计划任务（ONLOGON）、macOS LaunchAgent
-- [x] 配置根解析改为 `PLANNER_HOME` > 源码仓库根 > 当前目录（pipx 安装后以"当前目录即项目"工作）
-- [x] `INSTALL.md` + `install.sh` / `install.ps1` 一键脚本；`.env.example` 补 `PLANNER_HOME`
+- [x] 配置根解析改为 `PLANNER_HOME` > 源码仓库根 > 当前目录（安装后以工作目录为根）
+- [x] **源码安装（弃用 pipx）**：`deploy/` 目录 + `install.sh` / `install.ps1`——建 venv → pip install（`-r` + `-e .`）→ `planner setup`/`doctor` → `planner service install`（注册 python 守护开机自启）→ 末尾提示在 harness 执行 `/swarm-add-planner` 注册
+- [x] `INSTALL.md` 重写为源码/deploy 流程，并说明 harness（opencode/claude/deepseek + 其 agent-swarm 插件）的角色；`.env.example` 补 `PLANNER_HOME`
+- [x] `planner service` 增加 `--serve-cmd`（deploy 脚本精确指向 venv 内 launcher）
 - [x] 单测 `tests/test_installer.py`（12 例；全套 **80 passed**）
 
 > 关键约束：守护与 harness 都要在线；平台需含 planner 特性（`role=planner` + `/ws/planner` + notify，目前在平台 dev 分支，正式发布前需合入）。
