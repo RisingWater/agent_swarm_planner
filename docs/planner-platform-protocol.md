@@ -63,8 +63,8 @@ planner agent 与专家 agent 沟通后写入；专家验收点用 `acceptance_t
   "goals":[{"id","title","description","status","plan_status","priority","deadline",
             "success_criteria","criteria_confirmed","expert_workspace_id","expert_name",
             "progress":{"done":n,"total":m}}],
-  "tasks":[{"id","goal_id","title","status","depends_on":[...],
-            "assigned_agent","acceptance_type","acceptance_result","updated_at"}]
+  "tasks":[{"id","goal_id","title","description","status","depends_on":[...],
+            "assigned_agent","suggested_agent","acceptance_type","acceptance_result","updated_at"}]
 }}
 ```
 平台把最新快照按 workspace 存储并转发给前端；这是**展示缓存**，不作真相。

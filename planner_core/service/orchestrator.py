@@ -155,6 +155,11 @@ class PlannerService:
         d["progress"] = {"done": sum(1 for t in tasks if t.status == "done"), "total": len(tasks)}
         return d
 
+    def _task_dict(self, task: Task) -> dict[str, Any]:
+        d = task.__dict__.copy()
+        d["suggested_agent"] = task.assigned_agent  # 平台弹窗用该键名
+        return d
+
     def state(self, goal_id: str | None = None) -> dict[str, Any]:
         """供平台/agent 读取的完整状态快照（字段名与协议文档 §3 对齐）。"""
         if goal_id:
@@ -162,14 +167,14 @@ class PlannerService:
             if goal is None:
                 raise KeyError(f"目标不存在: {goal_id}")
             tasks = self.store.list_tasks(goal_id)
-            return {"goals": [self._goal_dict(goal, tasks)], "tasks": [t.__dict__ for t in tasks]}
+            return {"goals": [self._goal_dict(goal, tasks)], "tasks": [self._task_dict(t) for t in tasks]}
         goals = self.list_goals()
         out_goals: list[dict[str, Any]] = []
         out_tasks: list[dict[str, Any]] = []
         for g in goals:
             ts = self.store.list_tasks(g.id)
             out_goals.append(self._goal_dict(g, ts))
-            out_tasks.extend(t.__dict__ for t in ts)
+            out_tasks.extend(self._task_dict(t) for t in ts)
         return {"goals": out_goals, "tasks": out_tasks}
 
     def next_ready(self, goal_id: str) -> list[dict[str, Any]]:

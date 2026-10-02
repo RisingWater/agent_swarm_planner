@@ -121,6 +121,16 @@ async def test_expert_flow_states(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_state_task_has_suggested_agent_alias(tmp_path):
+    svc = _svc(tmp_path)
+    g = svc.create_goal("g")
+    svc.apply_plan(g.id, {"tasks": [{"temp_id": "a", "title": "a", "assigned_agent": "W9"}]})
+    st = await svc.handle_op("state.get", {})
+    t = st["state"]["tasks"][0]
+    assert t["assigned_agent"] == "W9" and t["suggested_agent"] == "W9"
+
+
+@pytest.mark.asyncio
 async def test_goal_update_criteria_confirmed(tmp_path):
     svc = _svc(tmp_path)
     g = svc.create_goal("g")
