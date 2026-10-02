@@ -423,13 +423,12 @@ def cmd_service(args: argparse.Namespace) -> int:
 
     if args.service_cmd == "status":
         plan = installer.service_plan(root, **kwargs)
-        exists = Path(plan["primary"]).exists()
-        print(f"服务名：{plan['name']}  系统：{plan['os']}  产物：{plan['primary']}  "
-              f"{'已安装' if exists else '未安装'}")
-        if plan["os"] == "linux":
-            cli = ["systemctl"] + (["--user"] if scope != "system" else [])
-            r = installer._run(cli + ["is-active", f"{name}.service"])
-            print("is-active:", r["out"] or r["err"])
+        print(f"服务名：{plan['name']}  系统：{plan['os']}  产物：{plan['primary']}")
+        if plan["status_command"]:
+            r = installer._run(plan["status_command"])
+            detail = (r["out"] or r["err"]).strip().splitlines()
+            first = detail[0] if detail else ""
+            print(("已注册  " if r["ok"] else "未注册  ") + first)
         return 0
 
     if args.service_cmd == "install":

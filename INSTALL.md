@@ -103,7 +103,7 @@ cd <repo> && opencode      # 或 claude / dsh
 ```
 
 - **Linux**：`~/.config/systemd/user/agent-swarm-planner.service` + `systemctl --user enable --now`；免登录常驻执行 `loginctl enable-linger $USER`。
-- **Windows**：`.agent_swarm\serve.cmd` + 登录触发计划任务（`schtasks /SC ONLOGON`，当前用户、无需管理员）。
+- **Windows**：`.agent_swarm\serve.cmd` + 写入注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`（登录自启，当前用户、无需管理员；`--scope system` 写 `HKLM`）。
 - **macOS**：`~/Library/LaunchAgents/agent-swarm-planner.plist` + `launchctl load`。
 
 守护做的事：订阅 `/ws/nexus` 观察 worker 终态 → 回写本地任务 → tick 提升就绪/注入提示词 → 控制通道 `/ws/planner`（收平台操作、推状态快照、推人工待办 notify）。

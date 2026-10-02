@@ -61,7 +61,7 @@ python -m venv .venv
 | `deploy/install.sh` / `deploy\install.ps1` | 一键安装：建 venv + pip install + 注册 python 守护开机自启 |
 | `planner setup` | 配置向导（写 `.env`、建库、校验平台连通） |
 | `planner doctor [--offline]` | 安装自检（Python/依赖/配置/DB/平台/控制通道） |
-| `planner service install\|status\|uninstall\|print` | 开机自启（Linux systemd / Windows 计划任务 / macOS LaunchAgent） |
+| `planner service install\|status\|uninstall\|print` | 开机自启（Linux systemd / Windows 注册表 Run 键 / macOS LaunchAgent） |
 | `planner info` / `planner status` | 配置（隐藏密钥）/ 跨目标概览 |
 | `planner ping` | 检查平台 MCP 与控制通道 `/ws/planner` 连通 |
 | `planner workspaces [--all]` | 列出平台可见工作区（选专家/派活用） |

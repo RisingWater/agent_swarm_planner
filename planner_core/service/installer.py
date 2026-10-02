@@ -1,7 +1,7 @@
 """安装/常驻/自检的纯逻辑 + 平台产物生成。
 
 - `.env` 读写（保留注释与顺序，只改/追加指定键）
-- 各平台开机自启产物：systemd（Linux）、launchd（macOS）、计划任务 + 启动包装（Windows）
+- 各平台开机自启产物：systemd（Linux）、launchd（macOS）、注册表 Run 键 + 启动包装（Windows）
 - `setup` 写配置、`doctor` 静态预检
 
 CLI 侧（`planner setup|doctor|service`）调用本模块；产物生成是纯函数，便于单测。
@@ -133,17 +133,23 @@ def windows_wrapper_cmd(*, serve_cmd: str, workdir: str, out_log: str, err_log: 
     )
 
 
-def windows_task_args(*, task_name: str, wrapper_path: str) -> list[str]:
-    """schtasks 创建「登录时自启」任务（当前用户，无需管理员）。"""
-    return [
-        "schtasks", "/Create", "/TN", task_name,
-        "/TR", f'"{wrapper_path}"',
-        "/SC", "ONLOGON", "/RL", "LIMITED", "/F",
-    ]
+def windows_run_key(scope: str = "user") -> str:
+    """自启注册表位置：用户级 HKCU、系统级 HKLM 的 Run 键。"""
+    hive = "HKLM" if scope == "system" else "HKCU"
+    return f"{hive}\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 
-def windows_task_delete_args(*, task_name: str) -> list[str]:
-    return ["schtasks", "/Delete", "/TN", task_name, "/F"]
+def windows_run_add_args(*, name: str, command: str, scope: str = "user") -> list[str]:
+    """reg add：把启动命令写入 Run 键（登录时自启）。"""
+    return ["reg", "add", windows_run_key(scope), "/v", name, "/t", "REG_SZ", "/d", command, "/f"]
+
+
+def windows_run_delete_args(*, name: str, scope: str = "user") -> list[str]:
+    return ["reg", "delete", windows_run_key(scope), "/v", name, "/f"]
+
+
+def windows_run_query_args(*, name: str, scope: str = "user") -> list[str]:
+    return ["reg", "query", windows_run_key(scope), "/v", name]
 
 
 # ---------------------------------------------------------------- 服务计划（纯）
@@ -159,6 +165,7 @@ def service_plan(root: Path | str, *, osname: str | None = None, scope: str = "u
     commands: list[list[str]] = []
     uninstall_files: list[str] = []
     uninstall_commands: list[list[str]] = []
+    status_command: list[str] = []
     primary = ""
 
     if osname == "linux":
@@ -175,6 +182,7 @@ def service_plan(root: Path | str, *, osname: str | None = None, scope: str = "u
         commands = [cli + ["daemon-reload"], cli + ["enable", "--now", f"{name}.service"]]
         uninstall_files = [str(unit_path)]
         uninstall_commands = [cli + ["disable", "--now", f"{name}.service"], cli + ["daemon-reload"]]
+        status_command = cli + ["is-active", f"{name}.service"]
     elif osname == "macos":
         agent_dir = Path.home() / "Library" / "LaunchAgents"
         plist_path = agent_dir / f"{name}.plist"
@@ -185,6 +193,7 @@ def service_plan(root: Path | str, *, osname: str | None = None, scope: str = "u
         commands = [["launchctl", "load", "-w", str(plist_path)]]
         uninstall_files = [str(plist_path)]
         uninstall_commands = [["launchctl", "unload", "-w", str(plist_path)]]
+        status_command = ["launchctl", "list", name]
     elif osname == "windows":
         wrapper = root / ".agent_swarm" / "serve.cmd"
         state = root / "data"
@@ -193,8 +202,9 @@ def service_plan(root: Path | str, *, osname: str | None = None, scope: str = "u
             serve_cmd=serve_cmd, workdir=workdir,
             out_log=str(state / "serve.out.log"), err_log=str(state / "serve.err.log"),
         )
-        commands = [windows_task_args(task_name=name, wrapper_path=str(wrapper))]
-        uninstall_commands = [windows_task_delete_args(task_name=name)]
+        commands = [windows_run_add_args(name=name, command=f'"{wrapper}"', scope=scope)]
+        uninstall_commands = [windows_run_delete_args(name=name, scope=scope)]
+        status_command = windows_run_query_args(name=name, scope=scope)
     else:
         raise RuntimeError(f"不支持的系统：{osname}")
 
@@ -202,6 +212,7 @@ def service_plan(root: Path | str, *, osname: str | None = None, scope: str = "u
         "os": osname, "scope": scope, "name": name,
         "primary": primary, "files": files, "commands": commands,
         "uninstall_files": uninstall_files, "uninstall_commands": uninstall_commands,
+        "status_command": status_command,
         "serve_cmd": serve_cmd, "workdir": workdir,
     }
 

@@ -64,7 +64,20 @@ def test_service_plan_windows(tmp_path):
     cmd_text = plan["files"][plan["primary"]]
     assert "cd /d" in cmd_text and "planner.exe serve" in cmd_text
     create = plan["commands"][0]
-    assert create[0] == "schtasks" and "ONLOGON" in create
+    assert create[0] == "reg" and "Run" in " ".join(create) and "HKCU" in " ".join(create)
+    assert plan["status_command"][0] == "reg"
+    assert plan["uninstall_commands"][0][0] == "reg"
+
+
+def test_windows_run_key_and_args():
+    assert installer.windows_run_key("user").startswith("HKCU\\")
+    assert installer.windows_run_key("system").startswith("HKLM\\")
+    add = installer.windows_run_add_args(name="p", command='"C:\\x\\serve.cmd"')
+    assert add[0] == "reg" and add[1] == "add" and "/f" in add
+    delete = installer.windows_run_delete_args(name="p")
+    assert delete[:2] == ["reg", "delete"]
+    query = installer.windows_run_query_args(name="p")
+    assert query[:2] == ["reg", "query"]
 
 
 def test_service_plan_macos(tmp_path):
