@@ -69,6 +69,7 @@
 - [x] 前端 `PlannerPage`（只读：任务列表 + 最近成果 markdown）（`380f206`）
 - [x] 三 harness `/swarm-add-planner`：opencode/claude md 命令、dsh 原生 `register("swarm-add-planner")`；`/swarm-add` 保持无参（`e8b224e`）
 - [x] 服务端重启并验证 role 生效（本工作区已显示 `planner`）
+- [x] 工作区页：规划器置顶 + 紫色「规划器」徽标；顶栏「规划器」入口仅在有 planner 工作区时显示（dev `653cca9`，前端即时生效）
 - [ ] 规划器页**写操作**：创建目标 / 审批拆解 / 验收按钮（第一增量明确只读）
 
 ---
