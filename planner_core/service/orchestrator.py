@@ -31,7 +31,7 @@ def _read_workspace_md(root) -> dict[str, str]:
     return out
 
 
-def _write_workspace_md(root, workspace_id: str, purpose: str, capabilities: str) -> None:
+def _write_workspace_md(root, workspace_id: str, purpose: str, capabilities: str, role: str = "") -> None:
     from pathlib import Path
 
     f = Path(root) / ".agent_swarm" / "workspace.md"
@@ -42,7 +42,9 @@ def _write_workspace_md(root, workspace_id: str, purpose: str, capabilities: str
         cur["PURPOSE"] = purpose
     if capabilities:
         cur["CAPABILITIES"] = capabilities
-    order = ["WORKSPACE_ID", "PURPOSE", "CAPABILITIES"]
+    if role:
+        cur["ROLE"] = role
+    order = ["WORKSPACE_ID", "ROLE", "PURPOSE", "CAPABILITIES"]
     lines = [f"{k}: {cur[k]}" for k in order if k in cur]
     lines += [f"{k}: {v}" for k, v in cur.items() if k not in order]
     f.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -231,7 +233,7 @@ class PlannerService:
             path=str(s.root), purpose=purpose, capabilities=capabilities, role=role
         )
         wid = str(res.get("workspace_id") or s.workspace_id)
-        _write_workspace_md(s.root, wid, purpose, capabilities)
+        _write_workspace_md(s.root, wid, purpose, capabilities, role=role)
         return {"workspace_id": wid, "role": str(res.get("role") or role), "result": res}
 
     # ---------------------------------------------------------------- 派单

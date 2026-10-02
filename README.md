@@ -102,6 +102,17 @@ dsh）都能连，让 agent 不必 shell 调 CLI：
 `PLANNER_DISPATCH_PREAMBLE`（默认"请先压缩/总结你的上下文…"）——把「派单先让对方压缩
 上下文」这条规则机械化，不依赖 agent 记忆。
 
+### 安全边界（重要）
+
+本地 MCP **不是只对 planner agent 开放的**——stdio MCP 没有调用方身份，谁能连取决于它被写进
+谁的配置。因此：
+
+- **只写进 planner 项目自己的配置**，不要写全局 `~/.config/opencode/opencode.jsonc`，否则
+  机器上其它项目的 agent 也能读写 planner 的库、甚至向外派单。
+- **启动校验**：`planner mcp` 启动时要求 (a) 进程 cwd 在 planner 仓库内；(b) 仓库
+  `.agent_swarm/workspace.md` 含 `ROLE: planner`（由 `planner register` 写入）。任一不满足
+  直接 `exit 2` 拒绝服务。调试可用 `planner mcp --no-guard` 跳过。
+
 opencode 接入示例（写入 `opencode.jsonc`）：
 
 ```jsonc

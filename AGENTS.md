@@ -58,6 +58,9 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
   `PLANNER_DISPATCH_PREAMBLE` ("compress context first") to every worker dispatch.
 - `planner_core/mcp_server.py` — zero-dep stdio MCP `planner_*` tools; `serve()` reads
   newline-delimited JSON-RPC (strips a leading BOM — PowerShell pipes add one).
+- `planner_core/guard.py` — MCP only serves when cwd is inside the planner repo AND
+  `.agent_swarm/workspace.md` has `ROLE: planner` (written by `planner register`).
+  Never put this MCP in a global agent config — that would expose it to every project.
 - `planner_core/service/daemon.py` — `planner serve`: observer + tick (refresh ready, throttled nudge).
 - `planner_core/engine/acceptance.py` — runs `execution_spec.accept_command`.
 - `tests/` — pytest. `data/` and `.env` are gitignored.

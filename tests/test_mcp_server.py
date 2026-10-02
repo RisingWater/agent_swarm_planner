@@ -68,3 +68,13 @@ def test_set_status_and_record_execution(tools):
     assert err is False
     state, _ = _call(tools, "planner_get_state", {"goal_id": goal["id"]})
     assert state["tasks"][0]["status"] == "done"
+
+
+def test_serve_refuses_without_planner_marker(tools, tmp_path):
+    from planner_core.config import Settings
+    from planner_core.mcp_server import serve
+
+    s = Settings(server="http://x", api_key="as_x", workspace_id="wid",
+                 db_path=tmp_path / "p.db", root=tmp_path)
+    with pytest.raises(SystemExit):
+        serve(s, enforce_guard=True)

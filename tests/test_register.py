@@ -28,6 +28,7 @@ def test_register_marks_planner_and_writes_md(tmp_path, monkeypatch):
 
     md = (tmp_path / ".agent_swarm" / "workspace.md").read_text(encoding="utf-8")
     assert "WORKSPACE_ID: ws_new" in md
+    assert "ROLE: planner" in md
     assert "PURPOSE: 规划器" in md
     assert "CAPABILITIES: DAG" in md
 

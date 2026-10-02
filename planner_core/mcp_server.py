@@ -188,8 +188,15 @@ def _write(obj: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
-def serve(settings: Settings | None = None) -> None:
+def serve(settings: Settings | None = None, enforce_guard: bool = True) -> None:
     settings = settings or load_settings()
+    if enforce_guard:
+        from .guard import guard
+
+        ok, why = guard(settings.root)
+        if not ok:
+            print(f"[planner-mcp] 拒绝服务：{why}", file=sys.stderr, flush=True)
+            raise SystemExit(2)
     tools = PlannerTools(settings)
     print(f"[planner-mcp] ready (ws={settings.workspace_id}, db={settings.db_path})", file=sys.stderr, flush=True)
     for line in sys.stdin:
