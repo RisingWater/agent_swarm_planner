@@ -295,7 +295,8 @@ class PlannerService:
             if self.store.get_goal(gid) is None:
                 return {"ok": False, "error": f"目标不存在: {gid}"}
             self.store.update_goal(gid, **{k: payload.get(k) for k in
-                                           ("title", "description", "priority", "deadline", "success_criteria")})
+                                           ("title", "description", "priority", "deadline",
+                                            "success_criteria", "expert_workspace_id", "expert_name")})
             return {"ok": True}
         if op == "goal.archive":
             self.store.set_goal_status(str(payload.get("goal_id") or ""), "archived")
