@@ -42,11 +42,12 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
    `planner dispatch <target_wid> "任务内容" --task-id <task_id>` — auto-prepends
    `PLANNER_DISPATCH_PREAMBLE` ("compress context first") and links the worker task back to the
    local task (worker terminal state is written back by `planner serve`).
-5. Expert acceptance (`acceptance_type=expert` / status `waiting_expert`): compile the point's
-   related task states + executions and `a2a_call` the expert for a JSON verdict
-   `{accepted, reason, adjustments?}`. `accepted` → `planner task set <id> done`; `adjustments`
-   → apply them (`plan apply`, which returns `plan_status` to `draft`) and wait for human
-   re-approval. **Never dispatch an expert acceptance point as a normal worker task.**
+5. Expert acceptance (`acceptance_type=expert` / status `waiting_expert`): run
+   `planner report <goal_id> --task <task_id>` to compile the situation, then `a2a_call` the
+   expert for a JSON verdict `{accepted, reason, adjustments?}`. `accepted` → `planner task set
+   <id> done`; `adjustments` → apply them (`planner plan apply --replace`, full tree
+   replacement, which returns `plan_status` to `draft`) and wait for human re-approval. **Never
+   dispatch an expert acceptance point as a normal worker task.**
 6. Failures/blocks: `planner plan recover <goal_id>`.
 7. Human acceptance: tasks in `waiting_human` (or `acceptance_type=manual`) need a human
    decision — ask via your native question/permission (the platform surfaces it as

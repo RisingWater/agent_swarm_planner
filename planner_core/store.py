@@ -210,6 +210,16 @@ class Store:
         finally:
             conn.close()
 
+    def delete_tasks(self, goal_id: str) -> int:
+        """删除目标下所有任务（task_deps/executions 级联删除）。返回删除数。"""
+        conn = dbmod.connect(self.db_path)
+        try:
+            cur = conn.execute("DELETE FROM tasks WHERE goal_id=?", (goal_id,))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
     def list_tasks(self, goal_id: str) -> list[Task]:
         conn = dbmod.connect(self.db_path)
         try:

@@ -123,3 +123,27 @@ def test_set_expert_and_expert_acceptance(tmp_path):
     assert t.acceptance_type == "expert"
     assert svc.apply_acceptance(t.id)["status"] == "waiting_expert"
     assert svc.store.get_task(t.id).status == "waiting_expert"
+
+
+def test_apply_plan_replace(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}, {"temp_id": "b", "title": "b"}]})
+    assert len(svc.store.list_tasks(goal.id)) == 2
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "c", "title": "c"}]}, replace=True)
+    tasks = svc.store.list_tasks(goal.id)
+    assert len(tasks) == 1 and tasks[0].title == "c"
+
+
+def test_report_includes_expert_and_evidence(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("上线", success_criteria="可访问", expert_workspace_id="E1", expert_name="专家")
+    svc.apply_plan(goal.id, {"tasks": [
+        {"temp_id": "a", "title": "实现"},
+        {"temp_id": "b", "title": "专家验收", "depends_on": ["a"], "acceptance_type": "expert"},
+    ]})
+    tasks = svc.store.list_tasks(goal.id)
+    svc.store.add_execution(tasks[0].id, agent="worker", output="build ok", anchor="log")
+    rep = svc.report(goal.id, task_id=tasks[1].id)
+    assert "专家" in rep and "★验收点" in rep
+    assert "build ok" in rep and "请专家裁决" in rep

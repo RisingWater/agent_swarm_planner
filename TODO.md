@@ -58,6 +58,8 @@
 - [x] planner agent 全权沟通专家（提示词 + AGENTS playbook：专家拆解、专家验收 JSON 裁决）
 - [x] CLI：`goal add --expert` / `goal set-expert` / `workspaces`
 - [x] 专家调整 → `apply_plan` 回 `plan_status=draft` 等人工再审
+- [x] `plan apply --replace` 整树替换（专家调整计划用）；`planner report` 验收情况报告
+- [x] 回复 agent_swarm 的 4 个确认点（`goal.update` 支持改专家；auto/manual/expert 文案；编辑态放开）
 - [ ] 平台：建目标加**专家工作区选择器**、目标展示专家、任务树标 `expert` 验收点与 `waiting_expert`
 - [ ] 端到端实测：建目标(带专家)→专家拆解→审批→派发→专家验收→裁决/调整
 

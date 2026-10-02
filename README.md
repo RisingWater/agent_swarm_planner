@@ -63,11 +63,12 @@ python -m venv .venv
 | `planner task set <task_id> <status>` | 设置任务状态 |
 | `planner plan show <goal_id>` | 显示任务树 |
 | `planner plan export <goal_id>` | 导出目标+任务树 JSON |
-| `planner plan apply <goal_id> --file plan.json` | 写入 agent 拆解出的任务树（支持乱序 temp_id 依赖） |
+| `planner plan apply <goal_id> --file plan.json [--replace]` | 写入拆解结果（乱序 temp_id 两趟解析 + DAG 校验；`--replace` 整树替换，专家调整用） |
 | `planner plan recover <goal_id>` | 失败任务重试/阻塞策略（未超上限回 pending，超限 blocked） |
 | `planner nudge <goal_id>` | 组装提示词（dry-run，只打印） |
 | `planner nudge <goal_id> --send` | 经 A2A 网关投递给 planner 工作区 |
 | `planner observe` | 订阅 `/ws/nexus` 观察事件 |
+| `planner report <goal_id> [--task <id>]` | 生成验收情况报告（交专家 agent 裁决） |
 | `planner dispatch <target_wid> "指令" [--task-id <id>] [--wait N]` | 经平台 `a2a_call` 派任务给目标工作区（自动加"先压缩上下文"前导；带 `--task-id` 时 worker 终态回写该任务） |
 | `planner accept <task_id>` | 执行该任务的自动验收命令（`execution_spec.accept_command`） |
 | `planner serve [--no-send] [--tick 30]` | 后台守护：订阅事件 + 提升就绪 + 按需注入 + 平台控制通道 |

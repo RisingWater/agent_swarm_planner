@@ -93,16 +93,19 @@ class PlannerService:
         dag.validate(self.store.list_tasks(goal_id))
 
     # ---------------------------------------------------------------- 计划
-    def apply_plan(self, goal_id: str, plan: dict[str, Any]) -> list[Task]:
-        """把 agent 拆解出的 JSON 计划写入任务树。
+    def apply_plan(self, goal_id: str, plan: dict[str, Any], replace: bool = False) -> list[Task]:
+        """把 agent/专家拆解出的 JSON 计划写入任务树。
 
         计划格式：
         {"tasks": [{"temp_id","title","description","depends_on":[temp_id],
                     "assigned_agent","acceptance_type","execution_spec"}]}
         两趟写入以支持任意顺序的依赖引用；最后统一校验 DAG。
+        replace=True 时先删除该目标现有任务（专家调整计划用）。
         """
         if self.store.get_goal(goal_id) is None:
             raise KeyError(f"目标不存在: {goal_id}")
+        if replace:
+            self.store.delete_tasks(goal_id)
         specs = plan.get("tasks") or []
         temp_to_real: dict[str, str] = {}
         created: list[Task] = []
@@ -474,6 +477,48 @@ class PlannerService:
             if t.assigned_agent:
                 line += f"  @{t.assigned_agent}"
             lines.append(line)
+        return "\n".join(lines)
+
+    def report(self, goal_id: str, task_id: str = "") -> str:
+        """验收情况报告：目标 + 执行 + 证据，供 planner agent 交给专家验收。"""
+        goal = self.store.get_goal(goal_id)
+        if goal is None:
+            return f"目标不存在: {goal_id}"
+        tasks = self.store.list_tasks(goal_id)
+        by_id = {t.id: t for t in tasks}
+        done = sum(1 for t in tasks if t.status == "done")
+        lines = [
+            f"# 验收情况报告：{goal.title}",
+            "",
+            f"- 目标 ID：{goal.id}",
+            f"- 专家工作区：{goal.expert_name or goal.expert_workspace_id or '(未指定)'}"
+            + (f" (`{goal.expert_workspace_id}`)" if goal.expert_workspace_id else ""),
+            f"- 拆解状态：{goal.plan_status} · 进度：{done}/{len(tasks)}",
+        ]
+        if goal.success_criteria:
+            lines.append(f"- 成功标准：{goal.success_criteria}")
+        lines.append("")
+        if task_id and task_id in by_id:
+            lines.append(f"> 本报告聚焦验收点 [{task_id}] {by_id[task_id].title}")
+            lines.append("")
+        lines.append("## 任务与执行")
+        for t in tasks:
+            mark = " ★验收点" if t.acceptance_type == "expert" else ""
+            deps = ", ".join(by_id[d].title if d in by_id else d for d in t.depends_on)
+            lines.append(f"- [{t.id}] {t.title} — **{t.status}**（验收 {t.acceptance_type}）{mark}")
+            if deps:
+                lines.append(f"    · 依赖：{deps}")
+            if t.acceptance_result:
+                lines.append(f"    · 验收结果：{t.acceptance_result[:300]}")
+            for e in self.store.list_executions(t.id)[:2]:
+                if e["output"]:
+                    lines.append(f"    · 执行输出：{str(e['output'])[:400]}")
+                if e["anchor"]:
+                    lines.append(f"    · 锚点：{str(e['anchor'])[:400]}")
+        lines.append("")
+        lines.append("## 请专家裁决")
+        lines.append("请回复 JSON：`{\"accepted\": true|false, \"reason\": \"...\", \"adjustments\": [...]}`")
+        lines.append("（adjustments 为可选的调整后的任务列表，格式同 plan apply）")
         return "\n".join(lines)
 
     def markdown(self, goal_id: str) -> str:

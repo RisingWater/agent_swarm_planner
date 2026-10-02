@@ -95,6 +95,32 @@ async def test_goal_create_with_expert(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_expert_flow_states(tmp_path):
+    svc = _svc(tmp_path)
+    g = svc.create_goal("g", expert_workspace_id="E1")
+    svc.apply_plan(g.id, {"tasks": [
+        {"temp_id": "impl", "title": "实现"},
+        {"temp_id": "check", "title": "专家验收", "depends_on": ["impl"], "acceptance_type": "expert"},
+    ]})
+    assert svc.store.get_goal(g.id).plan_status == "draft"  # 等人工审批
+
+    await svc.handle_op("plan.approve", {"goal_id": g.id})
+    assert svc.store.get_goal(g.id).plan_status == "approved"
+
+    impl, check = svc.store.list_tasks(g.id)
+    svc.refresh_ready(g.id)
+    assert svc.store.get_task(impl.id).status == "ready"
+    svc.store.set_task_status(impl.id, "done")
+    svc.refresh_ready(g.id)
+    assert svc.store.get_task(check.id).status == "ready"  # 专家验收点就绪
+
+    # 专家返回 adjustments → 整树替换 → 回 draft 等再审
+    svc.apply_plan(g.id, {"tasks": [{"temp_id": "impl2", "title": "返工"}]}, replace=True)
+    assert svc.store.get_goal(g.id).plan_status == "draft"
+    assert len(svc.store.list_tasks(g.id)) == 1
+
+
+@pytest.mark.asyncio
 async def test_unknown_op(tmp_path):
     svc = _svc(tmp_path)
     r = await svc.handle_op("nope", {})

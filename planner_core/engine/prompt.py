@@ -76,9 +76,9 @@ def build_prompt(settings: Settings, goal: Goal, tasks: list[Task]) -> str:
     lines.append("4. 拆解审批：`plan_status=draft` 时本轮只输出任务树等人工审批（页面「通过拆解」），不要派发。")
     lines.append("5. approved 后派发 ready 任务（**验收点除外**）：")
     lines.append("   `planner dispatch <target_wid> \"任务内容\" --task-id <task_id>`（worker 终态由守护回写）。")
-    lines.append("6. 专家验收点（acceptance_type=expert）就绪时：整理该点相关任务状态与执行情况，")
-    lines.append("   a2a_call 请专家裁决（要求 JSON `{accepted, reason, adjustments?}`）；accepted→`task set done`；")
-    lines.append("   有 adjustments→应用调整（`plan apply`）后 plan_status 回 draft，等人工再审。")
+    lines.append("6. 专家验收点（acceptance_type=expert）就绪时：运行 `planner report <goal_id> --task <task_id>`")
+    lines.append("   汇总情况，a2a_call 请专家裁决（要求 JSON `{accepted, reason, adjustments?}`）；accepted→`task set done`；")
+    lines.append("   有 adjustments→应用调整（`plan apply --replace`，整树替换）后 plan_status 回 draft，等人工再审。")
     lines.append("7. 失败/阻塞用 `planner plan recover <goal_id>`；`waiting_human` 任务由你发起提问，")
     lines.append("   批准则 `planner task set <task_id> done`，拒绝则 failed。")
     lines.append("8. 最后运行 `planner plan markdown <goal_id>`，把输出作为本次回答正文"

@@ -142,7 +142,7 @@ def cmd_plan_apply(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"计划不是合法 JSON: {e}", file=sys.stderr)
         return 2
-    created = svc.apply_plan(args.goal_id, plan)
+    created = svc.apply_plan(args.goal_id, plan, replace=args.replace)
     print(f"已写入 {len(created)} 个任务:")
     for t in created:
         print(f"  - [{t.id}] {t.title}")
@@ -213,6 +213,13 @@ def cmd_ping(args: argparse.Namespace) -> int:
             print("control WS   : FAIL", e)
 
     asyncio.run(_ws())
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    print(svc.report(args.goal_id, args.task or ""))
     return 0
 
 
@@ -361,6 +368,7 @@ def build_parser() -> argparse.ArgumentParser:
     pa = plsub.add_parser("apply", help="从 JSON 写入任务树（agent 拆解结果）")
     pa.add_argument("goal_id")
     pa.add_argument("--file", default="", help="JSON 文件；留空从 stdin 读取")
+    pa.add_argument("--replace", action="store_true", help="替换现有任务树（专家调整计划用）")
     pa.set_defaults(func=cmd_plan_apply)
     pr = plsub.add_parser("recover", help="失败任务重试/阻塞策略")
     pr.add_argument("goal_id")
@@ -383,6 +391,11 @@ def build_parser() -> argparse.ArgumentParser:
     dp.set_defaults(func=cmd_dispatch)
 
     sub.add_parser("observe", help="订阅 /ws/nexus 观察事件").set_defaults(func=cmd_observe)
+
+    rp = sub.add_parser("report", help="验收情况报告（交给专家 agent）")
+    rp.add_argument("goal_id")
+    rp.add_argument("--task", default="", help="聚焦某个验收点任务")
+    rp.set_defaults(func=cmd_report)
 
     ac = sub.add_parser("accept", help="执行任务的自动验收命令")
     ac.add_argument("task_id")
