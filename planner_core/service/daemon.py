@@ -26,7 +26,13 @@ class PlannerDaemon:
     async def run(self) -> None:
         self.svc.init()
         log.info("daemon 启动 send=%s tick=%ss ws=%s", self.send, self.tick_interval, self.settings.workspace_id)
-        await asyncio.gather(self._observe(), self._tick_loop())
+        from ..platform import planner_ws
+
+        await asyncio.gather(
+            self._observe(),
+            self._tick_loop(),
+            planner_ws.run(self.settings, self.svc, state_interval=self.settings.ws_state_interval),
+        )
 
     # ---------------------------------------------------------------- 观察
     async def _observe(self) -> None:

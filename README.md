@@ -66,7 +66,8 @@ python -m venv .venv
 | `planner observe` | 订阅 `/ws/nexus` 观察事件 |
 | `planner dispatch <target_wid> "指令" [--task-id <id>] [--wait N]` | 经平台 `a2a_call` 派任务给目标工作区（自动加"先压缩上下文"前导；带 `--task-id` 时 worker 终态回写该任务） |
 | `planner accept <task_id>` | 执行该任务的自动验收命令（`execution_spec.accept_command`） |
-| `planner serve [--no-send] [--tick 30]` | 后台守护：订阅事件 + 提升就绪 + 按需注入 |
+| `planner serve [--no-send] [--tick 30]` | 后台守护：订阅事件 + 提升就绪 + 按需注入 + 平台控制通道 |
+| `planner ws` | 只启动平台控制通道（连 `WS /ws/planner`） |
 
 `plan apply` 的 JSON 格式：
 
@@ -104,6 +105,18 @@ planner dispatch <target_wid> "指令"           # 派活（自动前置"先压�
 ```
 
 注入给 planner agent 的提示词已经写明了这些命令，不需要额外配置任何 MCP。
+
+## 平台控制通道（内网友好）
+
+平台访问不到 core 的端口，因此 **core 主动连平台的 WebSocket** 长连接：平台网页的
+「建目标 / 审批 / 验收」等操作经该 WS 下发给 core，core 把目标 + 任务树快照从同一条 WS 推回
+平台展示。平台只做 UI 与转发，不存任务真相。
+
+- core 侧：`planner ws`（或 `planner serve` 一并启动），连 `WS /ws/planner`；
+- 协议（双方契约）：[`docs/planner-platform-protocol.md`](docs/planner-platform-protocol.md)；
+- 配置：`PLANNER_WS_PATH`（默认 `/ws/planner`）、`PLANNER_WS_STATE_INTERVAL`。
+
+> 平台需新增 `/ws/planner` 端点、`/api/planner/{wid}/state|op` 与「规划器」页写操作。
 
 ## 任务验收
 

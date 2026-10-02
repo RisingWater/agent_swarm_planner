@@ -105,6 +105,22 @@ class Store:
         finally:
             conn.close()
 
+    def update_goal(self, goal_id: str, **fields: object) -> None:
+        allowed = {"title", "description", "priority", "deadline", "success_criteria", "status"}
+        sets = {k: v for k, v in fields.items() if k in allowed and v is not None}
+        if not sets:
+            return
+        cols = ", ".join(f"{k}=?" for k in sets)
+        conn = dbmod.connect(self.db_path)
+        try:
+            conn.execute(
+                f"UPDATE goals SET {cols}, updated_at=? WHERE id=?",
+                (*sets.values(), dbmod.utcnow(), goal_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     # ---------------------------------------------------------------- tasks
     def add_task(
         self,
@@ -273,7 +289,7 @@ class Store:
 
     # ---------------------------------------------------------------- 幂等
     def record_operation(self, op_id: str, type_: str, payload: dict | str) -> bool:
-        """记录操作；若已存在返回 False（表示重复，应跳过）。"""
+        """记录操作；若已存在返回 False（表示重复，应跳过）。payload 用作去重键 + 结果存储。"""
         conn = dbmod.connect(self.db_path)
         try:
             exists = conn.execute(
@@ -293,6 +309,30 @@ class Store:
             )
             conn.commit()
             return True
+        finally:
+            conn.close()
+
+    def get_operation(self, op_id: str):
+        conn = dbmod.connect(self.db_path)
+        try:
+            return conn.execute(
+                "SELECT * FROM operations WHERE op_id=?", (op_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+
+    def set_operation_result(self, op_id: str, result: dict | str) -> None:
+        conn = dbmod.connect(self.db_path)
+        try:
+            conn.execute(
+                "UPDATE operations SET payload=?, processed_at=? WHERE op_id=?",
+                (
+                    result if isinstance(result, str) else json.dumps(result, ensure_ascii=False),
+                    dbmod.utcnow(),
+                    op_id,
+                ),
+            )
+            conn.commit()
         finally:
             conn.close()
 

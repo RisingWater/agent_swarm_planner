@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from typing import Any
 
@@ -243,6 +245,67 @@ class PlannerService:
         if actions:
             self.refresh_ready(goal_id)
         return actions
+
+    # ---------------------------------------------------------------- 平台操作
+    async def handle_op(self, op: str, payload: dict[str, Any] | None = None, op_id: str = "") -> dict[str, Any]:
+        """处理平台经 WS 下发的操作。op_id 非空时幂等（结果存 operations 表）。"""
+        payload = payload or {}
+        if op_id:
+            row = self.store.get_operation(op_id)
+            if row is not None:
+                try:
+                    return json.loads(row["payload"] or "{}")
+                except ValueError:
+                    return {"ok": True, "duplicate": True}
+        result = await self._do_op(op, payload)
+        if op_id:
+            self.store.record_operation(op_id, op, result)
+        return result
+
+    async def _do_op(self, op: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if op == "goal.create":
+            goal = self.create_goal(
+                title=str(payload.get("title") or "").strip(),
+                description=str(payload.get("description") or ""),
+                priority=int(payload.get("priority") or 0),
+                deadline=str(payload.get("deadline") or ""),
+                success_criteria=str(payload.get("success_criteria") or ""),
+            )
+            return {"ok": True, "goal_id": goal.id}
+        if op == "goal.update":
+            gid = str(payload.get("goal_id") or "")
+            if self.store.get_goal(gid) is None:
+                return {"ok": False, "error": f"目标不存在: {gid}"}
+            self.store.update_goal(gid, **{k: payload.get(k) for k in
+                                           ("title", "description", "priority", "deadline", "success_criteria")})
+            return {"ok": True}
+        if op == "goal.archive":
+            self.store.set_goal_status(str(payload.get("goal_id") or ""), "archived")
+            return {"ok": True}
+        if op in ("plan.approve", "plan.revise", "goal.nudge"):
+            gid = str(payload.get("goal_id") or "")
+            if self.store.get_goal(gid) is None:
+                return {"ok": False, "error": f"目标不存在: {gid}"}
+            self._schedule_nudge(gid)
+            return {"ok": True, "nudged": True}
+        if op == "task.accept":
+            tid = str(payload.get("task_id") or "")
+            self.store.set_task_status(tid, "done", acceptance_result=str(payload.get("result") or "人工验收通过"))
+            return {"ok": True}
+        if op == "task.reject":
+            tid = str(payload.get("task_id") or "")
+            self.store.set_task_status(tid, "failed", acceptance_result=str(payload.get("reason") or "人工验收拒绝"))
+            return {"ok": True}
+        if op == "state.get":
+            return {"ok": True, "state": self.state()}
+        return {"ok": False, "error": f"未知操作: {op}"}
+
+    def _schedule_nudge(self, goal_id: str) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        loop.create_task(self.nudge(goal_id, send=True, force=True))
 
     # ---------------------------------------------------------------- 注册
     def register(self, role: str = "planner", purpose: str = "", capabilities: str = "") -> dict[str, Any]:

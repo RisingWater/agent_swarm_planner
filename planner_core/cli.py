@@ -194,6 +194,18 @@ def cmd_accept(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_ws(args: argparse.Namespace) -> int:
+    from .platform import planner_ws
+
+    settings = load_settings()
+    settings.validate()
+    try:
+        asyncio.run(planner_ws.run(settings))
+    except KeyboardInterrupt:
+        print("\n已停止控制通道")
+    return 0
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from .service.daemon import PlannerDaemon
 
@@ -310,10 +322,12 @@ def build_parser() -> argparse.ArgumentParser:
     rg.add_argument("--purpose", default="")
     rg.add_argument("--capabilities", default="")
     rg.set_defaults(func=cmd_register)
-    sv = sub.add_parser("serve", help="启动后台守护（观察 + 调度 + 注入）")
+    sv = sub.add_parser("serve", help="启动后台守护（观察 + 调度 + 注入 + 平台控制通道）")
     sv.add_argument("--no-send", action="store_true", help="只观察/调度，不注入提示词")
     sv.add_argument("--tick", type=float, default=30.0, help="调度间隔秒（默认 30）")
     sv.set_defaults(func=cmd_serve)
+
+    sub.add_parser("ws", help="只启动平台控制通道（WS /ws/planner）").set_defaults(func=cmd_ws)
     return p
 
 

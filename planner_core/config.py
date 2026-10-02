@@ -75,6 +75,9 @@ class Settings:
     first_step: str = "先压缩/总结你自己的上下文（如 opencode 的 /compact），释放上下文窗口后再开始。"
     # 派给其它 agent 的固定前导（机械保证"先压缩上下文"这条派单规则）
     dispatch_preamble: str = "请先压缩/总结你的上下文，释放上下文窗口后再开始以下任务。"
+    # 平台控制通道 WS 路径（平台需新增该端点）
+    ws_path: str = "/ws/planner"
+    ws_state_interval: int = 30
 
     @property
     def a2a_url(self) -> str:
@@ -134,4 +137,6 @@ def load_settings(root: Path | None = None) -> Settings:
         or "先压缩/总结你自己的上下文（如 opencode 的 /compact），释放上下文窗口后再开始。",
         dispatch_preamble=pick("PLANNER_DISPATCH_PREAMBLE")
         or "请先压缩/总结你的上下文，释放上下文窗口后再开始以下任务。",
+        ws_path=pick("PLANNER_WS_PATH") or "/ws/planner",
+        ws_state_interval=as_int("PLANNER_WS_STATE_INTERVAL", 30),
     )
