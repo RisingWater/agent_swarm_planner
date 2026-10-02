@@ -45,6 +45,27 @@ def test_dispatch_links_platform_task(tmp_path, monkeypatch):
     assert row["local_id"] == "wid2" and row["status"] == "queued"
 
 
+def test_dispatch_with_task_id_sets_running_and_links(tmp_path, monkeypatch):
+    svc = _svc(tmp_path)
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    task = svc.store.list_tasks(goal.id)[0]
+
+    class FakeMCP:
+        def __init__(self, settings):
+            pass
+
+        def a2a_call(self, target, message, from_workspace, wait_seconds=0):
+            return {"task_id": "ptW", "status": "queued"}
+
+    monkeypatch.setattr("planner_core.platform.mcp_client.MCPClient", FakeMCP)
+    out = svc.dispatch("wid2", "干活", task_id=task.id)
+    assert out["local_task_id"] == task.id
+    row = svc.store.get_platform_task("ptW")
+    assert row["local_kind"] == "task" and row["local_id"] == task.id
+    assert svc.store.get_task(task.id).status == "running"
+
+
 def _client_with(handler, tmp_path):
     transport = httpx.MockTransport(handler)
     http = httpx.Client(transport=transport)

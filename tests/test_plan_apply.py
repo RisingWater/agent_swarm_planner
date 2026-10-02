@@ -80,3 +80,34 @@ def test_markdown_snapshot(tmp_path):
     assert "| 任务 | 状态 |" in md
     assert "写 \\| 测试" in md
     assert "0/2" in md
+
+
+def test_apply_acceptance_manual_sets_waiting_human(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a", "acceptance_type": "manual"}]})
+    t = svc.store.list_tasks(goal.id)[0]
+    r = svc.apply_acceptance(t.id)
+    assert r["status"] == "waiting_human"
+    assert svc.store.get_task(t.id).status == "waiting_human"
+
+
+def test_apply_acceptance_auto_runs_command(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{
+        "temp_id": "a", "title": "a", "acceptance_type": "auto",
+        "execution_spec": {"accept_command": 'python -c "print(1)"'},
+    }]})
+    t = svc.store.list_tasks(goal.id)[0]
+    r = svc.apply_acceptance(t.id)
+    assert r["status"] == "done"
+    assert svc.store.get_task(t.id).status == "done"
+
+
+def test_apply_acceptance_auto_no_command_done(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a", "acceptance_type": "auto"}]})
+    t = svc.store.list_tasks(goal.id)[0]
+    assert svc.apply_acceptance(t.id)["status"] == "done"

@@ -172,7 +172,7 @@ def cmd_dispatch(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
     svc.settings.validate()
-    result = svc.dispatch(args.target, args.message, wait_seconds=args.wait)
+    result = svc.dispatch(args.target, args.message, wait_seconds=args.wait, task_id=args.task_id)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
@@ -296,6 +296,7 @@ def build_parser() -> argparse.ArgumentParser:
     dp.add_argument("target", help="目标工作区 ID")
     dp.add_argument("message")
     dp.add_argument("--wait", type=int, default=0, help="同步等待终态秒数（默认 0）")
+    dp.add_argument("--task-id", default="", help="关联的本地任务 ID；worker 终态时回写该任务")
     dp.set_defaults(func=cmd_dispatch)
 
     sub.add_parser("observe", help="订阅 /ws/nexus 观察事件").set_defaults(func=cmd_observe)

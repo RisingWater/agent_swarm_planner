@@ -65,8 +65,10 @@ def build_prompt(settings: Settings, goal: Goal, tasks: list[Task]) -> str:
     lines.append("1. 读本仓库 AGENTS.md 的「Planner agent playbook」，按其中的 CLI 流程执行。")
     lines.append("2. 读取状态：`planner plan export <goal_id>`（或 `planner plan show <goal_id>`）；")
     lines.append("   任务树为空/不完整则拆解后 `planner plan apply <goal_id> --file plan.json` 写入。")
-    lines.append("3. 对 ready 任务用 `planner dispatch <target_wid> \"任务内容\"` 派发，并 `planner task set` 回写。")
-    lines.append("4. 失败/阻塞用 `planner plan recover <goal_id>`；需要人工决策时发起提问等待确认。")
+    lines.append("3. 对 ready 任务用 `planner dispatch <target_wid> \"任务内容\" --task-id <task_id>` 派发；")
+    lines.append("   守护进程会在 worker 终态时把该任务回写为 done/failed。")
+    lines.append("4. 失败/阻塞用 `planner plan recover <goal_id>`；`waiting_human`（人工验收）任务由你发起提问，")
+    lines.append("   批准则 `planner task set <task_id> done`，拒绝则 failed。")
     lines.append("5. 最后运行 `planner plan markdown <goal_id>`，把输出作为本次回答正文"
                  "（平台「规划器」页会展示它）。")
     if ready:

@@ -64,7 +64,7 @@ python -m venv .venv
 | `planner nudge <goal_id>` | 组装提示词（dry-run，只打印） |
 | `planner nudge <goal_id> --send` | 经 A2A 网关投递给 planner 工作区 |
 | `planner observe` | 订阅 `/ws/nexus` 观察事件 |
-| `planner dispatch <target_wid> "指令" [--wait N]` | 经平台 `a2a_call` 派任务给目标工作区（自动加"先压缩上下文"前导） |
+| `planner dispatch <target_wid> "指令" [--task-id <id>] [--wait N]` | 经平台 `a2a_call` 派任务给目标工作区（自动加"先压缩上下文"前导；带 `--task-id` 时 worker 终态回写该任务） |
 | `planner accept <task_id>` | 执行该任务的自动验收命令（`execution_spec.accept_command`） |
 | `planner serve [--no-send] [--tick 30]` | 后台守护：订阅事件 + 提升就绪 + 按需注入 |
 

@@ -30,9 +30,11 @@ class PlannerDaemon:
 
     # ---------------------------------------------------------------- 观察
     async def _observe(self) -> None:
-        async for msg in observer.stream(self.settings):
+        # 通配订阅：planner 自己 + 派发出去的 worker 工作区都在本用户名下，
+        # 这样才能收到 worker 任务的终态帧。
+        async for msg in observer.stream(self.settings, workspace_id="*"):
             try:
-                self._handle_frame(msg)
+                await asyncio.to_thread(self._handle_frame, msg)
             except Exception as e:  # noqa: BLE001
                 log.warning("处理观察帧失败：%s", e)
 
@@ -53,6 +55,17 @@ class PlannerDaemon:
         if row is None:
             return
         self.svc.store.update_platform_task_status(platform_task_id, state)
+        # worker 任务终态 → 回写本地任务
+        if row["local_kind"] != "task" or not row["local_id"]:
+            return
+        tid = row["local_id"]
+        if state == "completed":
+            self.svc.apply_acceptance(tid)
+        elif state in ("failed", "canceled"):
+            self.svc.store.set_task_status(tid, "failed")
+            self.svc.store.add_execution(tid, agent="worker", anchor=f"platform_task={platform_task_id}", status="failed")
+        elif state == "input-required":
+            self.svc.store.set_task_status(tid, "waiting_human")
 
     # ---------------------------------------------------------------- 调度
     async def _tick_loop(self) -> None:

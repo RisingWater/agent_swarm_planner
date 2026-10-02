@@ -35,10 +35,14 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
 3. Decompose: write a JSON plan, then `planner plan apply <goal_id> --file plan.json`.
    Format: `{"tasks":[{"temp_id","title","depends_on":[],"assigned_agent","acceptance_type","execution_spec"}]}`
    (`temp_id` references may be out of order; the DAG is validated).
-4. Dispatch ready tasks: `planner dispatch <target_wid> "任务内容"` — this auto-prepends
-   `PLANNER_DISPATCH_PREAMBLE` ("compress context first"). Then `planner task set <task_id> running`.
+4. Dispatch ready tasks: `planner dispatch <target_wid> "任务内容" --task-id <task_id>` — this
+   auto-prepends `PLANNER_DISPATCH_PREAMBLE` ("compress context first") and links the worker
+   task back to the local task (worker terminal state is written back by `planner serve`).
 5. Failures/blocks: `planner plan recover <goal_id>`.
-6. Finish: `planner plan markdown <goal_id>` and use that output as your reply — the platform
+6. Human acceptance: tasks in `waiting_human` (or `acceptance_type=manual`) need a human
+   decision — ask via your native question/permission (the platform surfaces it as
+   `input-required`); on approval `planner task set <id> done`, on reject `... failed`.
+7. Finish: `planner plan markdown <goal_id>` and use that output as your reply — the platform
    "Planner" page renders it as the task tree.
 
 ## Config resolution (in order)

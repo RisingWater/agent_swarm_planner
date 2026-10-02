@@ -178,6 +178,30 @@ class PlannerService:
         self.store.set_task_status(task_id, status)
         return {"execution_id": eid, "task_id": task_id, "status": status}
 
+    def apply_acceptance(self, task_id: str) -> dict[str, Any]:
+        """worker 任务终态（成功）后按验收策略落状态。
+
+        - `acceptance_type=manual` → `waiting_human`（等人在平台确认）
+        - `acceptance_type=auto` 且配了 `accept_command` → 跑命令，done/failed
+        - 否则直接 `done`
+        """
+        from ..engine import acceptance
+
+        task = self.store.get_task(task_id)
+        if task is None:
+            raise KeyError(f"任务不存在: {task_id}")
+        if task.status == "done":
+            return {"task_id": task_id, "status": "done", "reason": "already done"}
+        if task.acceptance_type == "manual":
+            self.store.set_task_status(task_id, "waiting_human")
+            return {"task_id": task_id, "status": "waiting_human", "reason": "manual acceptance"}
+        spec = acceptance.acceptance_spec(task)
+        if spec.get("accept_command") or spec.get("command"):
+            return self.run_acceptance(task_id)
+        self.store.add_execution(task_id, agent="worker", anchor="auto-accept (no command)", status="done")
+        self.store.set_task_status(task_id, "done")
+        return {"task_id": task_id, "status": "done", "reason": "auto (no command)"}
+
     def run_acceptance(self, task_id: str) -> dict[str, Any]:
         """执行任务配置的自动验收命令，回写状态 + execution。"""
         from ..engine import acceptance
@@ -245,21 +269,32 @@ class PlannerService:
             return f"{pre}\n\n{msg}"
         return msg
 
-    def dispatch(self, target: str, message: str, wait_seconds: int = 0) -> dict[str, Any]:
-        """经平台 MCP `a2a_call` 把（带前导的）任务派给目标工作区。"""
+    def dispatch(self, target: str, message: str, wait_seconds: int = 0, task_id: str = "") -> dict[str, Any]:
+        """经平台 MCP `a2a_call` 把（带前导的）任务派给目标工作区。
+
+        task_id：本地任务 ID。传了就把平台任务映射到该本地任务，并在 worker 终态时回写。
+        """
         from ..platform.mcp_client import MCPClient
 
         wrapped = self.wrap_dispatch(message)
         result = MCPClient(self.settings).a2a_call(
             target, wrapped, self.settings.workspace_id, wait_seconds
         )
-        task_id = str(result.get("task_id") or result.get("id") or "")
-        if task_id:
-            self.store.link_platform_task(
-                task_id, local_kind="dispatch", local_id=target, direction="out",
-                caller=self.settings.caller, status=str(result.get("status") or ""),
-            )
-        return {"task_id": task_id, "target": target, "message": wrapped, "result": result}
+        ptid = str(result.get("task_id") or result.get("id") or "")
+        if ptid:
+            if task_id:
+                self.store.link_platform_task(
+                    ptid, local_kind="task", local_id=task_id, direction="out",
+                    caller=self.settings.caller, status=str(result.get("status") or ""),
+                )
+                self.store.set_task_status(task_id, "running")
+            else:
+                self.store.link_platform_task(
+                    ptid, local_kind="dispatch", local_id=target, direction="out",
+                    caller=self.settings.caller, status=str(result.get("status") or ""),
+                )
+        return {"task_id": ptid, "target": target, "local_task_id": task_id,
+                "message": wrapped, "result": result}
 
     # ---------------------------------------------------------------- nudge
     def build_nudge(self, goal_id: str) -> str:

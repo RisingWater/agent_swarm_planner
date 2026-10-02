@@ -38,3 +38,30 @@ def test_ingest_updates_platform_task(tmp_path):
     d.svc.store.link_platform_task("pt1", "goal", "g1", "out", status="working")
     d._handle_frame({"type": "task", "task": {"id": "pt1", "status": {"state": "completed"}}})
     assert d.svc.store.get_platform_task("pt1")["status"] == "completed"
+
+
+def test_ingest_worker_terminal_writes_back_local_task(tmp_path):
+    d = _daemon(tmp_path)
+    goal = d.svc.create_goal("g")
+    d.svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    task = d.svc.store.list_tasks(goal.id)[0]
+    d.svc.store.link_platform_task("pt2", "task", task.id, "out", status="working")
+
+    d._handle_frame({"type": "event", "payload": {
+        "kind": "status-update", "taskId": "pt2", "status": {"state": "completed"}}})
+    assert d.svc.store.get_task(task.id).status == "done"
+    assert len(d.svc.store.list_executions(task.id)) == 1
+
+
+def test_ingest_worker_failed_and_waiting(tmp_path):
+    d = _daemon(tmp_path)
+    goal = d.svc.create_goal("g")
+    d.svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}, {"temp_id": "b", "title": "b"}]})
+    ta, tb = d.svc.store.list_tasks(goal.id)
+    d.svc.store.link_platform_task("ptf", "task", ta.id, "out")
+    d.svc.store.link_platform_task("ptw", "task", tb.id, "out")
+
+    d._handle_frame({"type": "task", "task": {"id": "ptf", "status": {"state": "failed"}}})
+    d._handle_frame({"type": "task", "task": {"id": "ptw", "status": {"state": "input-required"}}})
+    assert d.svc.store.get_task(ta.id).status == "failed"
+    assert d.svc.store.get_task(tb.id).status == "waiting_human"
