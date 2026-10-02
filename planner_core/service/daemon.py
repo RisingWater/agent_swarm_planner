@@ -88,6 +88,11 @@ class PlannerDaemon:
                 continue
             self.svc.recover(goal.id)
             self.svc.refresh_ready(goal.id)
+            tasks = self.svc.store.list_tasks(goal.id)
+            if tasks and all(t.status == "done" for t in tasks):
+                self.svc.store.set_goal_status(goal.id, "done")
+                log.info("目标 %s 全部任务完成 → done", goal.id)
+                continue
             if not self.send or goal.id in self._inflight:
                 continue
             if self._needs_attention(goal):

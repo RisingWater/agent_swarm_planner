@@ -44,6 +44,18 @@ def test_no_attention_when_all_done(tmp_path):
     assert d._needs_attention(d.svc.store.get_goal(goal.id)) is False
 
 
+def test_tick_completes_goal_when_all_tasks_done(tmp_path):
+    import asyncio
+
+    d = _daemon(tmp_path)
+    goal = d.svc.create_goal("g")
+    d.svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    task = d.svc.store.list_tasks(goal.id)[0]
+    d.svc.store.set_task_status(task.id, "done")
+    asyncio.run(d._tick())
+    assert d.svc.store.get_goal(goal.id).status == "done"
+
+
 def test_ingest_updates_platform_task(tmp_path):
     d = _daemon(tmp_path)
     d.svc.store.link_platform_task("pt1", "goal", "g1", "out", status="working")
