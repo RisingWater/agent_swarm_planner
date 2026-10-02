@@ -59,7 +59,7 @@
 - [x] CLI：`goal add --expert` / `goal set-expert` / `workspaces`
 - [x] 专家调整 → `apply_plan` 回 `plan_status=draft` 等人工再审
 - [x] **专家=planner 自身**：不走 A2A（自我派单会被拒），planner agent 自行拆解 + 自评审（提示词分支）
-- [ ] 平台：专家选择器允许选中 planner 工作区自身，并标注「本工作区（自评审）」
+- [x] 平台：专家选择器允许选中 planner 工作区自身，并标注「本工作区（自评审）」（dev `20a12c4`）
 - [x] `plan apply --replace` 整树替换（专家调整计划用）；`planner report` 验收情况报告
 - [x] 回复 agent_swarm 的 4 个确认点（`goal.update` 支持改专家；auto/manual/expert 文案；编辑态放开）
 - [x] 平台：建目标加**专家工作区选择器**、目标展示专家、任务树标 `expert` 验收点与 `waiting_expert`（dev `1fb374c`）
