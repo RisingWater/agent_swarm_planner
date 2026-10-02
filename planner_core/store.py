@@ -121,6 +121,16 @@ class Store:
         finally:
             conn.close()
 
+    def delete_goal(self, goal_id: str) -> bool:
+        """硬删除目标（tasks/task_deps/executions 级联删除）。返回是否删到。"""
+        conn = dbmod.connect(self.db_path)
+        try:
+            cur = conn.execute("DELETE FROM goals WHERE id=?", (goal_id,))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
     def set_goal_expert(self, goal_id: str, expert_workspace_id: str, expert_name: str = "") -> None:
         conn = dbmod.connect(self.db_path)
         try:

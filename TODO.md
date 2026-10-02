@@ -62,6 +62,8 @@
 - [x] 回复 agent_swarm 的 4 个确认点（`goal.update` 支持改专家；auto/manual/expert 文案；编辑态放开）
 - [x] 平台：建目标加**专家工作区选择器**、目标展示专家、任务树标 `expert` 验收点与 `waiting_expert`（dev `1fb374c`）
 - [x] 平台：目标编辑可改专家（空串=清除）；验收类型文案 `auto/manual/expert` 统一（dev `20406a9`）
+- [x] core：`goal.delete`（硬删除，级联任务树/执行）、`goal.activate`（归档恢复）；CLI `goal delete --yes` / `goal activate`
+- [ ] 平台：目标列表/详情加「删除」（二次确认）与归档目标的「激活」按钮
 - [ ] 端到端实测：建目标(带专家)→专家拆解→审批→派发→专家验收→裁决/调整
 
 ### 接口决策（已定，勿反复）

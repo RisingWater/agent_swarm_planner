@@ -26,7 +26,9 @@
 |---|---|---|
 | `goal.create` | `{title, description?, priority?, deadline?, success_criteria?}` | 新建目标 |
 | `goal.update` | `{goal_id, title?, description?, priority?, deadline?, success_criteria?}` | 编辑目标 |
-| `goal.archive` | `{goal_id}` | 归档 |
+| `goal.archive` | `{goal_id}` | 归档（软状态，保留数据、不参与调度） |
+| `goal.activate` | `{goal_id}` | 恢复已归档目标为 `active` |
+| `goal.delete` | `{goal_id}` | **硬删除**目标及其任务树/执行记录（级联，不可恢复） |
 | `plan.approve` | `{goal_id}` | 审批拆解（置 `plan_status=approved`）→ 通知 agent 开始派发 |
 | `plan.revise` | `{goal_id, note?}` | 要求重新拆解（置 `plan_status=draft`） |
 | `task.accept` | `{task_id, result?}` | 人工验收通过 |

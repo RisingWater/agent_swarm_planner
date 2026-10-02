@@ -304,6 +304,14 @@ class PlannerService:
         if op == "goal.archive":
             self.store.set_goal_status(str(payload.get("goal_id") or ""), "archived")
             return {"ok": True}
+        if op == "goal.activate":
+            gid = str(payload.get("goal_id") or "")
+            if self.store.get_goal(gid) is None:
+                return {"ok": False, "error": f"目标不存在: {gid}"}
+            self.store.set_goal_status(gid, "active")
+            return {"ok": True}
+        if op == "goal.delete":
+            return self.delete_goal(str(payload.get("goal_id") or ""))
         if op in ("plan.approve", "plan.revise", "goal.nudge"):
             gid = str(payload.get("goal_id") or "")
             if self.store.get_goal(gid) is None:
@@ -367,6 +375,13 @@ class PlannerService:
             raise KeyError(f"目标不存在: {goal_id}")
         self.store.set_goal_expert(goal_id, expert_workspace_id, expert_name)
         return {"ok": True, "goal_id": goal_id, "expert_workspace_id": expert_workspace_id}
+
+    def delete_goal(self, goal_id: str) -> dict[str, Any]:
+        """硬删除目标（含任务树/执行记录级联）。"""
+        if self.store.get_goal(goal_id) is None:
+            return {"ok": False, "error": f"目标不存在: {goal_id}"}
+        self.store.delete_goal(goal_id)
+        return {"ok": True, "deleted": goal_id}
 
     # ---------------------------------------------------------------- 派单
     def wrap_dispatch(self, message: str) -> str:

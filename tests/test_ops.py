@@ -121,6 +121,37 @@ async def test_expert_flow_states(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_goal_archive_and_activate(tmp_path):
+    svc = _svc(tmp_path)
+    g = svc.create_goal("g")
+    await svc.handle_op("goal.archive", {"goal_id": g.id})
+    assert svc.store.get_goal(g.id).status == "archived"
+    await svc.handle_op("goal.activate", {"goal_id": g.id})
+    assert svc.store.get_goal(g.id).status == "active"
+
+
+@pytest.mark.asyncio
+async def test_goal_delete_cascades(tmp_path):
+    svc = _svc(tmp_path)
+    g = svc.create_goal("g")
+    svc.apply_plan(g.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    tid = svc.store.list_tasks(g.id)[0].id
+    svc.store.add_execution(tid, output="x")
+    r = await svc.handle_op("goal.delete", {"goal_id": g.id})
+    assert r["ok"]
+    assert svc.store.get_goal(g.id) is None
+    assert svc.store.get_task(tid) is None
+    assert svc.store.list_executions(tid) == []
+
+
+@pytest.mark.asyncio
+async def test_goal_delete_missing(tmp_path):
+    svc = _svc(tmp_path)
+    r = await svc.handle_op("goal.delete", {"goal_id": "nope"})
+    assert r["ok"] is False
+
+
+@pytest.mark.asyncio
 async def test_unknown_op(tmp_path):
     svc = _svc(tmp_path)
     r = await svc.handle_op("nope", {})

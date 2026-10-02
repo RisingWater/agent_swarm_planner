@@ -58,6 +58,8 @@ python -m venv .venv
 | `planner goal add "标题" --desc ... --criteria ... --expert <wid>` | 创建目标（`--expert` 指定专家 agent 工作区） |
 | `planner goal list` | 列出目标 |
 | `planner goal set-expert <goal_id> <wid> [--name]` | 设置/更换目标的专家工作区 |
+| `planner goal activate <goal_id>` | 恢复已归档目标为 active |
+| `planner goal delete <goal_id> --yes` | 硬删除目标及其任务树/执行记录（级联） |
 | `planner workspaces [--all]` | 列出平台可见工作区（选专家/派活用） |
 | `planner task add <goal_id> "标题" --dep <task_id> --agent <wid> --acceptance auto` | 新增任务 |
 | `planner task set <task_id> <status>` | 设置任务状态 |

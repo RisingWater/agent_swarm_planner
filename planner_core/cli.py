@@ -80,6 +80,31 @@ def cmd_goal_set_expert(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_goal_activate(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    if svc.store.get_goal(args.goal_id) is None:
+        print(f"目标不存在: {args.goal_id}")
+        return 1
+    svc.store.set_goal_status(args.goal_id, "active")
+    print(f"{args.goal_id} -> active")
+    return 0
+
+
+def cmd_goal_delete(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    goal = svc.store.get_goal(args.goal_id)
+    if goal is None:
+        print(f"目标不存在: {args.goal_id}")
+        return 1
+    if not args.yes:
+        print(f"将硬删除目标 [{goal.id}] {goal.title} 及其任务树/执行记录。确认请加 --yes")
+        return 1
+    print(json.dumps(svc.delete_goal(args.goal_id), ensure_ascii=False))
+    return 0
+
+
 def cmd_goal_list(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -344,6 +369,13 @@ def build_parser() -> argparse.ArgumentParser:
     gse.add_argument("workspace_id")
     gse.add_argument("--name", default="")
     gse.set_defaults(func=cmd_goal_set_expert)
+    gd = gsub.add_parser("delete", help="硬删除目标（含任务树/执行记录，级联）")
+    gd.add_argument("goal_id")
+    gd.add_argument("--yes", action="store_true", help="确认删除")
+    gd.set_defaults(func=cmd_goal_delete)
+    gac = gsub.add_parser("activate", help="恢复已归档目标为 active")
+    gac.add_argument("goal_id")
+    gac.set_defaults(func=cmd_goal_activate)
     gsub.add_parser("list", help="列出目标").set_defaults(func=cmd_goal_list)
 
     t = sub.add_parser("task", help="任务管理")
