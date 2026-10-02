@@ -73,6 +73,8 @@ class Settings:
     send_timeout: int = 600
     # 注入提示词的第 0 步：先压缩上下文，释放窗口再干活（可通过 env 覆盖）
     first_step: str = "先压缩/总结你自己的上下文（如 opencode 的 /compact），释放上下文窗口后再开始。"
+    # 派给其它 agent 的固定前导（机械保证"先压缩上下文"这条派单规则）
+    dispatch_preamble: str = "请先压缩/总结你的上下文，释放上下文窗口后再开始以下任务。"
 
     @property
     def a2a_url(self) -> str:
@@ -130,4 +132,6 @@ def load_settings(root: Path | None = None) -> Settings:
         send_timeout=as_int("PLANNER_SEND_TIMEOUT", 600),
         first_step=pick("PLANNER_FIRST_STEP")
         or "先压缩/总结你自己的上下文（如 opencode 的 /compact），释放上下文窗口后再开始。",
+        dispatch_preamble=pick("PLANNER_DISPATCH_PREAMBLE")
+        or "请先压缩/总结你的上下文，释放上下文窗口后再开始以下任务。",
     )

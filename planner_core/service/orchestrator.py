@@ -188,6 +188,31 @@ class PlannerService:
             self.refresh_ready(goal_id)
         return actions
 
+    # ---------------------------------------------------------------- 派单
+    def wrap_dispatch(self, message: str) -> str:
+        """派单固定前导：先要求对方压缩上下文（规则机械化，不依赖 agent 记忆）。"""
+        pre = (self.settings.dispatch_preamble or "").strip()
+        msg = (message or "").strip()
+        if pre and not msg.startswith(pre):
+            return f"{pre}\n\n{msg}"
+        return msg
+
+    def dispatch(self, target: str, message: str, wait_seconds: int = 0) -> dict[str, Any]:
+        """经平台 MCP `a2a_call` 把（带前导的）任务派给目标工作区。"""
+        from ..platform.mcp_client import MCPClient
+
+        wrapped = self.wrap_dispatch(message)
+        result = MCPClient(self.settings).a2a_call(
+            target, wrapped, self.settings.workspace_id, wait_seconds
+        )
+        task_id = str(result.get("task_id") or result.get("id") or "")
+        if task_id:
+            self.store.link_platform_task(
+                task_id, local_kind="dispatch", local_id=target, direction="out",
+                caller=self.settings.caller, status=str(result.get("status") or ""),
+            )
+        return {"task_id": task_id, "target": target, "message": wrapped, "result": result}
+
     # ---------------------------------------------------------------- nudge
     def build_nudge(self, goal_id: str) -> str:
         goal = self.store.get_goal(goal_id)

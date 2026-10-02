@@ -86,6 +86,15 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "description": "输出目标的任务树 markdown 快照（用于回推平台展示）。",
         "inputSchema": _schema({"goal_id": {"type": "string"}}, ["goal_id"]),
     },
+    {
+        "name": "planner_dispatch",
+        "description": "经平台 a2a_call 把任务派给目标工作区；会自动在指令前面加上『先压缩上下文』的固定前导。",
+        "inputSchema": _schema(
+            {"target": {"type": "string"}, "message": {"type": "string"},
+             "wait_seconds": {"type": "integer"}},
+            ["target", "message"],
+        ),
+    },
 ]
 
 
@@ -129,6 +138,10 @@ class PlannerTools:
             return {"actions": self.svc.recover(args["goal_id"])}
         if name == "planner_render":
             return {"markdown": self.svc.markdown(args["goal_id"])}
+        if name == "planner_dispatch":
+            return self.svc.dispatch(
+                args["target"], args["message"], int(args.get("wait_seconds") or 0)
+            )
         raise ValueError(f"未知工具: {name}")
 
 

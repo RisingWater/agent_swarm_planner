@@ -64,6 +64,7 @@ python -m venv .venv
 | `planner nudge <goal_id>` | 组装提示词（dry-run，只打印） |
 | `planner nudge <goal_id> --send` | 经 A2A 网关投递给 planner 工作区 |
 | `planner observe` | 订阅 `/ws/nexus` 观察事件 |
+| `planner dispatch <target_wid> "指令" [--wait N]` | 经平台 `a2a_call` 派任务给目标工作区（自动加"先压缩上下文"前导） |
 | `planner accept <task_id>` | 执行该任务的自动验收命令（`execution_spec.accept_command`） |
 | `planner mcp` | 启动本地 MCP 状态接口（stdio），供 planner agent 读写 |
 | `planner serve [--no-send] [--tick 30]` | 后台守护：订阅事件 + 提升就绪 + 按需注入 |
@@ -95,7 +96,11 @@ dsh）都能连，让 agent 不必 shell 调 CLI：
 
 `planner_get_state` · `planner_next_ready` · `planner_save_plan` ·
 `planner_set_task_status` · `planner_add_goal` · `planner_record_execution` ·
-`planner_run_acceptance`
+`planner_run_acceptance` · `planner_recover` · `planner_render` · `planner_dispatch`
+
+`planner_dispatch` 走平台 MCP `a2a_call`，会**自动**在指令前加上
+`PLANNER_DISPATCH_PREAMBLE`（默认"请先压缩/总结你的上下文…"）——把「派单先让对方压缩
+上下文」这条规则机械化，不依赖 agent 记忆。
 
 opencode 接入示例（写入 `opencode.jsonc`）：
 
@@ -124,6 +129,7 @@ opencode 接入示例（写入 `opencode.jsonc`）：
   Nexus 观察者，含单测。
 - ✅ M2：本地 MCP 状态接口（7 工具，stdio 手写 JSON-RPC）、后台守护 `serve`
   （`/ws/nexus` 订阅 + 就绪提升 + 节流注入）、自动验收 `accept`。
-- ✅ M3（部分）：失败任务重试/阻塞升级（`plan recover` / MCP `planner_recover`，接入守护 tick）。
+- ✅ M3（部分）：失败任务重试/阻塞升级（`plan recover` / MCP `planner_recover`，接入守护 tick）；
+  平台 MCP 客户端 + `planner_dispatch`（派单自动前置"先压缩上下文"）。
 - ⏳ 下一步：平台侧 planner 标志 + 「目标/任务树」页（配合 `agent_swarm` 工作区）、
   人工验收提问闭环。

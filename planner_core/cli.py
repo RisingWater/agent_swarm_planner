@@ -168,6 +168,15 @@ def cmd_nudge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dispatch(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    svc.settings.validate()
+    result = svc.dispatch(args.target, args.message, wait_seconds=args.wait)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_accept(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -282,6 +291,12 @@ def build_parser() -> argparse.ArgumentParser:
     n.add_argument("--send", action="store_true", help="经 A2A 网关投递给 planner 工作区")
     n.add_argument("--force", action="store_true", help="忽略最小间隔限制")
     n.set_defaults(func=cmd_nudge)
+
+    dp = sub.add_parser("dispatch", help="经平台 a2a_call 派任务给目标工作区（自动加压缩前导）")
+    dp.add_argument("target", help="目标工作区 ID")
+    dp.add_argument("message")
+    dp.add_argument("--wait", type=int, default=0, help="同步等待终态秒数（默认 0）")
+    dp.set_defaults(func=cmd_dispatch)
 
     sub.add_parser("observe", help="订阅 /ws/nexus 观察事件").set_defaults(func=cmd_observe)
 
