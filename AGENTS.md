@@ -53,6 +53,10 @@ already registered (`XVgn9ogswmCbzrwzFPJheF`); reuse it, don't re-register blind
 - `planner_core/` — Python core. `engine/dag.py` + `engine/prompt.py` are pure and unit-tested.
 - `planner_core/platform/a2a_client.py` — `POST /a2a/{wid}` `message/send` / `message/stream`.
 - `planner_core/platform/observer.py` — `/ws/nexus` subscription.
+- `planner_core/mcp_server.py` — zero-dep stdio MCP `planner_*` tools; `serve()` reads
+  newline-delimited JSON-RPC (strips a leading BOM — PowerShell pipes add one).
+- `planner_core/service/daemon.py` — `planner serve`: observer + tick (refresh ready, throttled nudge).
+- `planner_core/engine/acceptance.py` — runs `execution_spec.accept_command`.
 - `tests/` — pytest. `data/` and `.env` are gitignored.
 - `docs/requirement_v1.md` — original spec (Chinese); use its exact DB columns, task-status
   enum (`pending/ready/running/done/failed/blocked/waiting_human`), and message concepts.

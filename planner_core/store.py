@@ -217,6 +217,39 @@ class Store:
         finally:
             conn.close()
 
+    def add_execution(
+        self,
+        task_id: str,
+        agent: str = "",
+        input_: str = "",
+        output: str = "",
+        anchor: str = "",
+        status: str = "done",
+    ) -> str:
+        now = dbmod.utcnow()
+        eid = new_id("exec")
+        conn = dbmod.connect(self.db_path)
+        try:
+            conn.execute(
+                "INSERT INTO executions (id,task_id,agent,input,output,anchor,status,"
+                "started_at,finished_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                (eid, task_id, agent, input_, output, anchor, status, now, now),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return eid
+
+    def list_executions(self, task_id: str) -> list:
+        conn = dbmod.connect(self.db_path)
+        try:
+            return conn.execute(
+                "SELECT * FROM executions WHERE task_id=? ORDER BY started_at DESC",
+                (task_id,),
+            ).fetchall()
+        finally:
+            conn.close()
+
     # ---------------------------------------------------------------- 调度
     def refresh_ready(self, goal_id: str) -> list[str]:
         """把依赖已全部 done 的 pending 任务提升为 ready，返回新提升的 id 列表。"""
@@ -293,5 +326,26 @@ class Store:
                 "SELECT * FROM platform_tasks WHERE platform_task_id=?",
                 (platform_task_id,),
             ).fetchone()
+        finally:
+            conn.close()
+
+    def update_platform_task_status(self, platform_task_id: str, status: str) -> None:
+        conn = dbmod.connect(self.db_path)
+        try:
+            conn.execute(
+                "UPDATE platform_tasks SET status=? WHERE platform_task_id=?",
+                (status, platform_task_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def platform_tasks_for_local(self, local_kind: str, local_id: str) -> list:
+        conn = dbmod.connect(self.db_path)
+        try:
+            return conn.execute(
+                "SELECT * FROM platform_tasks WHERE local_kind=? AND local_id=?",
+                (local_kind, local_id),
+            ).fetchall()
         finally:
             conn.close()

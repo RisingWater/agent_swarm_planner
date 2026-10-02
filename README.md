@@ -63,6 +63,9 @@ python -m venv .venv
 | `planner nudge <goal_id>` | 组装提示词（dry-run，只打印） |
 | `planner nudge <goal_id> --send` | 经 A2A 网关投递给 planner 工作区 |
 | `planner observe` | 订阅 `/ws/nexus` 观察事件 |
+| `planner accept <task_id>` | 执行该任务的自动验收命令（`execution_spec.accept_command`） |
+| `planner mcp` | 启动本地 MCP 状态接口（stdio），供 planner agent 读写 |
+| `planner serve [--no-send] [--tick 30]` | 后台守护：订阅事件 + 提升就绪 + 按需注入 |
 
 `plan apply` 的 JSON 格式：
 
@@ -84,9 +87,41 @@ planner_core/
 └─ cli.py
 ```
 
+## 本地 MCP 状态接口
+
+`planner mcp` 用零依赖 stdio JSON-RPC 暴露 7 个工具，任意 MCP 客户端（opencode / claude /
+dsh）都能连，让 agent 不必 shell 调 CLI：
+
+`planner_get_state` · `planner_next_ready` · `planner_save_plan` ·
+`planner_set_task_status` · `planner_add_goal` · `planner_record_execution` ·
+`planner_run_acceptance`
+
+opencode 接入示例（写入 `opencode.jsonc`）：
+
+```jsonc
+{
+  "mcp": {
+    "servers": {
+      "planner-core": {
+        "type": "local",
+        "command": ["<repo>\\.venv\\Scripts\\python.exe", "-m", "planner_core", "mcp"]
+      }
+    }
+  }
+}
+```
+
+## 任务验收
+
+任务 `execution_spec` 里配 `accept_command`（可选 `cwd` / `timeout`），`planner accept <task_id>`
+或 MCP `planner_run_acceptance` 会执行并把结果写入 `tasks.acceptance_result` 与 `executions`。
+`acceptance_type=manual` 的任务由人类通过平台的 `input-required` 提问确认。
+
 ## 状态
 
 - ✅ M0/M1：配置解析、SQLite schema、DAG、`plan apply/export`、提示词组装、A2A 投递、
   Nexus 观察者，含单测。
-- ⏳ 下一步：本地 MCP 状态接口（`planner_get_state`/`planner_save_plan`/…）、自动调度循环、
-  自动/人工验收、平台「目标/任务树」页。
+- ✅ M2：本地 MCP 状态接口（7 工具，stdio 手写 JSON-RPC）、后台守护 `serve`
+  （`/ws/nexus` 订阅 + 就绪提升 + 节流注入）、自动验收 `accept`。
+- ⏳ 下一步：平台侧 planner 标志 + 「目标/任务树」页（配合 `agent_swarm` 工作区）、
+  失败重试/重规划闭环、人工验收提问。

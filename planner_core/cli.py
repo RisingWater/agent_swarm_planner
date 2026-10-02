@@ -149,6 +149,36 @@ def cmd_nudge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_accept(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    result = svc.run_acceptance(args.task_id)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["ok"] else 1
+
+
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from .mcp_server import serve
+
+    settings = load_settings()
+    settings.validate()
+    serve(settings)
+    return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    from .service.daemon import PlannerDaemon
+
+    settings = load_settings()
+    settings.validate()
+    daemon = PlannerDaemon(settings, send=not args.no_send, tick_interval=args.tick)
+    try:
+        asyncio.run(daemon.run())
+    except KeyboardInterrupt:
+        print("\n已停止守护")
+    return 0
+
+
 def cmd_observe(args: argparse.Namespace) -> int:
     from .platform import observer
 
@@ -229,6 +259,16 @@ def build_parser() -> argparse.ArgumentParser:
     n.set_defaults(func=cmd_nudge)
 
     sub.add_parser("observe", help="订阅 /ws/nexus 观察事件").set_defaults(func=cmd_observe)
+
+    ac = sub.add_parser("accept", help="执行任务的自动验收命令")
+    ac.add_argument("task_id")
+    ac.set_defaults(func=cmd_accept)
+
+    sub.add_parser("mcp", help="启动本地 MCP 状态接口（stdio）").set_defaults(func=cmd_mcp)
+    sv = sub.add_parser("serve", help="启动后台守护（观察 + 调度 + 注入）")
+    sv.add_argument("--no-send", action="store_true", help="只观察/调度，不注入提示词")
+    sv.add_argument("--tick", type=float, default=30.0, help="调度间隔秒（默认 30）")
+    sv.set_defaults(func=cmd_serve)
     return p
 
 

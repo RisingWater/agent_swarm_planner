@@ -109,6 +109,64 @@ class PlannerService:
             "ready": [t.id for t in tasks if t.status == "ready"],
         }
 
+    def state(self, goal_id: str | None = None) -> dict[str, Any]:
+        """供 agent 读取的完整状态快照。"""
+        if goal_id:
+            goal = self.store.get_goal(goal_id)
+            if goal is None:
+                raise KeyError(f"目标不存在: {goal_id}")
+            return {"goals": [goal.__dict__], "tasks": [t.__dict__ for t in self.store.list_tasks(goal_id)]}
+        goals = self.list_goals()
+        tasks: list[dict[str, Any]] = []
+        for g in goals:
+            tasks.extend(t.__dict__ for t in self.store.list_tasks(g.id))
+        return {"goals": [g.__dict__ for g in goals], "tasks": tasks}
+
+    def next_ready(self, goal_id: str) -> list[dict[str, Any]]:
+        """提升就绪并返回当前可派发任务的摘要。"""
+        self.refresh_ready(goal_id)
+        return [
+            {"id": t.id, "title": t.title, "assigned_agent": t.assigned_agent,
+             "acceptance_type": t.acceptance_type}
+            for t in self.store.list_tasks(goal_id)
+            if t.status == "ready"
+        ]
+
+    def record_execution(
+        self,
+        task_id: str,
+        agent: str = "",
+        output: str = "",
+        anchor: str = "",
+        status: str = "done",
+    ) -> dict[str, Any]:
+        if self.store.get_task(task_id) is None:
+            raise KeyError(f"任务不存在: {task_id}")
+        eid = self.store.add_execution(task_id, agent=agent, output=output, anchor=anchor, status=status)
+        self.store.set_task_status(task_id, status)
+        return {"execution_id": eid, "task_id": task_id, "status": status}
+
+    def run_acceptance(self, task_id: str) -> dict[str, Any]:
+        """执行任务配置的自动验收命令，回写状态 + execution。"""
+        from ..engine import acceptance
+
+        task = self.store.get_task(task_id)
+        if task is None:
+            raise KeyError(f"任务不存在: {task_id}")
+        result = acceptance.run_acceptance(task, default_cwd=str(self.settings.root))
+        self.store.set_task_status(task_id, result.status, acceptance_result=result.output[:8000])
+        self.store.add_execution(
+            task_id, agent="planner-core", output=result.output, anchor=result.output[:2000],
+            status=result.status,
+        )
+        return {
+            "task_id": task_id,
+            "ok": result.ok,
+            "status": result.status,
+            "duration": round(result.duration, 3),
+            "output": result.output[-4000:],
+        }
+
     # ---------------------------------------------------------------- nudge
     def build_nudge(self, goal_id: str) -> str:
         goal = self.store.get_goal(goal_id)
