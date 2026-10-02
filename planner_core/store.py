@@ -24,6 +24,7 @@ def _row_to_goal(row) -> Goal:
         success_criteria=row["success_criteria"] or "",
         status=row["status"] or "active",
         plan_status=(row["plan_status"] if "plan_status" in row.keys() else None) or "draft",
+        plan_rev=int((row["plan_rev"] if "plan_rev" in row.keys() else 0) or 0),
         criteria_confirmed=int((row["criteria_confirmed"] if "criteria_confirmed" in row.keys() else 0) or 0),
         expert_workspace_id=(row["expert_workspace_id"] if "expert_workspace_id" in row.keys() else None) or "",
         expert_name=(row["expert_name"] if "expert_name" in row.keys() else None) or "",
@@ -115,10 +116,17 @@ class Store:
     def set_goal_plan_status(self, goal_id: str, plan_status: str) -> None:
         conn = dbmod.connect(self.db_path)
         try:
-            conn.execute(
-                "UPDATE goals SET plan_status=?, updated_at=? WHERE id=?",
-                (plan_status, dbmod.utcnow(), goal_id),
-            )
+            if plan_status == "draft":
+                # 进入 draft（初次拆解 / 重新拆解）→ plan_rev 自增，作为 notify 幂等键成分
+                conn.execute(
+                    "UPDATE goals SET plan_status=?, plan_rev=plan_rev+1, updated_at=? WHERE id=?",
+                    (plan_status, dbmod.utcnow(), goal_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE goals SET plan_status=?, updated_at=? WHERE id=?",
+                    (plan_status, dbmod.utcnow(), goal_id),
+                )
             conn.commit()
         finally:
             conn.close()
@@ -281,6 +289,85 @@ class Store:
                 "SELECT retry_count FROM tasks WHERE id=?", (task_id,)
             ).fetchone()
             return int(row["retry_count"]) if row else 0
+        finally:
+            conn.close()
+
+    def pending_notifications(self) -> list[dict]:
+        """计算当前"应发未发"的人工待办提醒（notify 边沿帧）。
+
+        两类：
+        - plan_approval：`active` 目标 `plan_status=draft` 且任务数 > 0；键 plan:<gid>:<plan_rev>
+        - task_acceptance：`acceptance_type=manual` 的任务 status=waiting_human；键 accept:<tid>:<retry>
+        已在 `notified` 表中的键跳过（保证处理前只提醒一次）。
+        """
+        now = dbmod.utcnow()
+        out: list[dict] = []
+        conn = dbmod.connect(self.db_path)
+        try:
+            notified = {r["key"] for r in conn.execute("SELECT key FROM notified").fetchall()}
+            for g in conn.execute(
+                "SELECT id,title,plan_status,plan_rev FROM goals WHERE status='active'"
+            ).fetchall():
+                if (g["plan_status"] or "draft") != "draft":
+                    continue
+                n = conn.execute(
+                    "SELECT COUNT(*) AS n FROM tasks WHERE goal_id=?", (g["id"],)
+                ).fetchone()["n"]
+                if not n:
+                    continue
+                rev = int(g["plan_rev"] or 0)
+                key = f"plan:{g['id']}:{rev}"
+                if key in notified:
+                    continue
+                gtitle = g["title"] or ""
+                out.append({
+                    "kind": "plan_approval",
+                    "key": key,
+                    "goal_id": g["id"],
+                    "goal_title": gtitle,
+                    "plan_rev": rev,
+                    "task_id": "",
+                    "title": f"拆解待审批：{gtitle}",
+                    "detail": f"共 {n} 个任务，等待人工『通过拆解』或『重新拆解』",
+                    "created_at": now,
+                })
+            for t in conn.execute(
+                "SELECT id,goal_id,title,retry_count FROM tasks "
+                "WHERE status='waiting_human' AND acceptance_type='manual'"
+            ).fetchall():
+                attempt = int(t["retry_count"] or 0)
+                key = f"accept:{t['id']}:{attempt}"
+                if key in notified:
+                    continue
+                grows = conn.execute("SELECT title FROM goals WHERE id=?", (t["goal_id"],)).fetchone()
+                gtitle = (grows["title"] if grows else "") or ""
+                ttitle = t["title"] or ""
+                out.append({
+                    "kind": "task_acceptance",
+                    "key": key,
+                    "goal_id": t["goal_id"],
+                    "goal_title": gtitle,
+                    "task_id": t["id"],
+                    "task_title": ttitle,
+                    "attempt": attempt,
+                    "title": f"人工验收待处理：{ttitle}",
+                    "detail": f"目标《{gtitle}》 · 等待人工验收",
+                    "created_at": now,
+                })
+            return out
+        finally:
+            conn.close()
+
+    def mark_notified(self, key: str, kind: str = "", goal_id: str = "", task_id: str = "") -> None:
+        """记录某待办通知已成功发出（幂等，成功 send 后调用）。"""
+        conn = dbmod.connect(self.db_path)
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO notified (key,kind,goal_id,task_id,notified_at) "
+                "VALUES (?,?,?,?,?)",
+                (key, kind, goal_id, task_id, dbmod.utcnow()),
+            )
+            conn.commit()
         finally:
             conn.close()
 

@@ -41,6 +41,27 @@ async def push_state(ws, service: PlannerService) -> None:
     await _send(ws, {"type": "state", "payload": state})
 
 
+async def flush_notifications(ws, service: PlannerService) -> None:
+    """把"应发未发"的人工待办以 `notify` 边沿帧发出去；成功后才落 `notified`（见协议 §7）。"""
+    try:
+        pending = service.store.pending_notifications()
+    except Exception as e:  # noqa: BLE001
+        log.warning("计算待办通知失败：%s", e)
+        return
+    for payload in pending:
+        payload = dict(payload)
+        payload["workspace_id"] = service.settings.workspace_id
+        try:
+            await _send(ws, {"type": "notify", "payload": payload})
+        except Exception:  # noqa: BLE001
+            return  # WS 断开：不落键，下个 tick / 重连后补发
+        service.store.mark_notified(
+            payload["key"], payload.get("kind", ""),
+            payload.get("goal_id", ""), payload.get("task_id", ""),
+        )
+        log.info("已推送待办通知 %s (%s)", payload["key"], payload.get("kind"))
+
+
 async def _handle_op(ws, service: PlannerService, msg: dict[str, Any]) -> None:
     op_id = str(msg.get("op_id") or "")
     op = str(msg.get("op") or "")
@@ -66,6 +87,7 @@ async def run(settings: Settings, service: PlannerService | None = None, state_i
                     raise RuntimeError(f"hello failed: {hello}")
                 log.info("planner ws 已连接 %s", url)
                 await push_state(ws, service)
+                await flush_notifications(ws, service)
                 stop = asyncio.Event()
 
                 async def _ticker() -> None:
@@ -73,6 +95,7 @@ async def run(settings: Settings, service: PlannerService | None = None, state_i
                         await asyncio.sleep(state_interval)
                         try:
                             await push_state(ws, service)
+                            await flush_notifications(ws, service)
                             await _send(ws, {"type": "ping"})
                         except Exception:  # noqa: BLE001
                             return
@@ -88,6 +111,7 @@ async def run(settings: Settings, service: PlannerService | None = None, state_i
                         if mtype == "op":
                             await _handle_op(ws, service, msg)
                             await push_state(ws, service)
+                            await flush_notifications(ws, service)
                         # pong / hello 忽略
                 finally:
                     stop.set()

@@ -42,6 +42,7 @@ class Goal:
     success_criteria: str = ""
     status: str = "active"
     plan_status: str = "draft"   # draft | approved
+    plan_rev: int = 0            # 每次进入 draft 自增（notify 幂等键 plan:<gid>:<rev>）
     criteria_confirmed: int = 0  # 成功标准是否经专家确认
     expert_workspace_id: str = ""
     expert_name: str = ""

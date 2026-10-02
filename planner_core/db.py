@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS goals (
     success_criteria TEXT DEFAULT '',
     status TEXT DEFAULT 'active',
     plan_status TEXT DEFAULT 'draft',
+    plan_rev INTEGER DEFAULT 0,
     criteria_confirmed INTEGER DEFAULT 0,
     expert_workspace_id TEXT DEFAULT '',
     expert_name TEXT DEFAULT '',
@@ -88,6 +89,15 @@ CREATE TABLE IF NOT EXISTS pending_inputs (
     created_at TEXT
 );
 
+-- 人工待办通知的“已发”记录：key 命中即不再重复提醒（notify 边沿帧幂等）
+CREATE TABLE IF NOT EXISTS notified (
+    key TEXT PRIMARY KEY,
+    kind TEXT DEFAULT '',
+    goal_id TEXT DEFAULT '',
+    task_id TEXT DEFAULT '',
+    notified_at TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_tasks_goal ON tasks(goal_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_deps_task ON task_deps(task_id);
@@ -124,6 +134,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(goals)").fetchall()}
     if "plan_status" not in cols:
         conn.execute("ALTER TABLE goals ADD COLUMN plan_status TEXT DEFAULT 'draft'")
+    if "plan_rev" not in cols:
+        conn.execute("ALTER TABLE goals ADD COLUMN plan_rev INTEGER DEFAULT 0")
     if "criteria_confirmed" not in cols:
         conn.execute("ALTER TABLE goals ADD COLUMN criteria_confirmed INTEGER DEFAULT 0")
     if "expert_workspace_id" not in cols:
