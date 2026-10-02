@@ -133,6 +133,18 @@ def cmd_plan_apply(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plan_recover(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    actions = svc.recover(args.goal_id)
+    if not actions:
+        print("（无需恢复）")
+        return 0
+    for a in actions:
+        print(f"  - {a['task_id']}: {a['action']}")
+    return 0
+
+
 def cmd_nudge(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -251,6 +263,9 @@ def build_parser() -> argparse.ArgumentParser:
     pa.add_argument("goal_id")
     pa.add_argument("--file", default="", help="JSON 文件；留空从 stdin 读取")
     pa.set_defaults(func=cmd_plan_apply)
+    pr = plsub.add_parser("recover", help="失败任务重试/阻塞策略")
+    pr.add_argument("goal_id")
+    pr.set_defaults(func=cmd_plan_recover)
 
     n = sub.add_parser("nudge", help="组装并投递提示词")
     n.add_argument("goal_id")

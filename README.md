@@ -60,6 +60,7 @@ python -m venv .venv
 | `planner plan show <goal_id>` | 显示任务树 |
 | `planner plan export <goal_id>` | 导出目标+任务树 JSON |
 | `planner plan apply <goal_id> --file plan.json` | 写入 agent 拆解出的任务树（支持乱序 temp_id 依赖） |
+| `planner plan recover <goal_id>` | 失败任务重试/阻塞策略（未超上限回 pending，超限 blocked） |
 | `planner nudge <goal_id>` | 组装提示词（dry-run，只打印） |
 | `planner nudge <goal_id> --send` | 经 A2A 网关投递给 planner 工作区 |
 | `planner observe` | 订阅 `/ws/nexus` 观察事件 |
@@ -123,5 +124,6 @@ opencode 接入示例（写入 `opencode.jsonc`）：
   Nexus 观察者，含单测。
 - ✅ M2：本地 MCP 状态接口（7 工具，stdio 手写 JSON-RPC）、后台守护 `serve`
   （`/ws/nexus` 订阅 + 就绪提升 + 节流注入）、自动验收 `accept`。
+- ✅ M3（部分）：失败任务重试/阻塞升级（`plan recover` / MCP `planner_recover`，接入守护 tick）。
 - ⏳ 下一步：平台侧 planner 标志 + 「目标/任务树」页（配合 `agent_swarm` 工作区）、
-  失败重试/重规划闭环、人工验收提问。
+  人工验收提问闭环。

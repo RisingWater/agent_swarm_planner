@@ -76,6 +76,11 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "description": "执行任务 execution_spec.accept_command 自动验收并回写。",
         "inputSchema": _schema({"task_id": {"type": "string"}}, ["task_id"]),
     },
+    {
+        "name": "planner_recover",
+        "description": "对目标下的失败任务执行重试策略：未超上限回 pending，超限置 blocked；返回变更列表。",
+        "inputSchema": _schema({"goal_id": {"type": "string"}}, ["goal_id"]),
+    },
 ]
 
 
@@ -115,6 +120,8 @@ class PlannerTools:
             )
         if name == "planner_run_acceptance":
             return self.svc.run_acceptance(args["task_id"])
+        if name == "planner_recover":
+            return {"actions": self.svc.recover(args["goal_id"])}
         raise ValueError(f"未知工具: {name}")
 
 

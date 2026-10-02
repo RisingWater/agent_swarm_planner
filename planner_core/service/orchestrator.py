@@ -167,6 +167,27 @@ class PlannerService:
             "output": result.output[-4000:],
         }
 
+    # ---------------------------------------------------------------- 恢复
+    def recover(self, goal_id: str) -> list[dict[str, str]]:
+        """失败任务重试策略：未超上限 → 回 pending；超限 → blocked（触发重规划/人工）。
+
+        返回本轮变更列表 [{"task_id","action"}]。幂等：只在 failed 上动作。
+        """
+        actions: list[dict[str, str]] = []
+        for t in self.store.list_tasks(goal_id):
+            if t.status != "failed":
+                continue
+            if t.retry_count < self.settings.max_retry:
+                self.store.inc_retry(t.id)
+                self.store.set_task_status(t.id, "pending")
+                actions.append({"task_id": t.id, "action": "retry"})
+            else:
+                self.store.set_task_status(t.id, "blocked")
+                actions.append({"task_id": t.id, "action": "blocked"})
+        if actions:
+            self.refresh_ready(goal_id)
+        return actions
+
     # ---------------------------------------------------------------- nudge
     def build_nudge(self, goal_id: str) -> str:
         goal = self.store.get_goal(goal_id)

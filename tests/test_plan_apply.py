@@ -49,3 +49,20 @@ def test_export_goal(tmp_path):
     assert out["goal"]["id"] == goal.id
     assert len(out["tasks"]) == 1
     assert len(out["ready"]) == 1
+
+
+def test_recover_retries_then_blocks(tmp_path):
+    svc = _service(tmp_path)
+    svc.settings.max_retry = 1
+    goal = svc.create_goal("g")
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a"}]})
+    svc.refresh_ready(goal.id)
+    task = svc.store.list_tasks(goal.id)[0]
+
+    svc.store.set_task_status(task.id, "failed")
+    assert svc.recover(goal.id) == [{"task_id": task.id, "action": "retry"}]
+    assert svc.store.get_task(task.id).status == "ready"  # pending 后依赖已满足 → ready
+
+    svc.store.set_task_status(task.id, "failed")
+    assert svc.recover(goal.id) == [{"task_id": task.id, "action": "blocked"}]
+    assert svc.store.get_task(task.id).status == "blocked"

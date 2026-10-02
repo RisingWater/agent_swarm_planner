@@ -67,6 +67,7 @@ class PlannerDaemon:
         for goal in self.svc.list_goals():
             if goal.status != "active":
                 continue
+            self.svc.recover(goal.id)
             self.svc.refresh_ready(goal.id)
             if not self.send or goal.id in self._inflight:
                 continue
@@ -78,7 +79,7 @@ class PlannerDaemon:
         tasks = self.svc.store.list_tasks(goal_id)
         if not tasks:
             return True  # 尚未拆解
-        return any(t.status in ("ready", "blocked") for t in tasks)
+        return any(t.status in ("ready", "blocked", "failed", "waiting_human") for t in tasks)
 
     async def _nudge(self, goal_id: str) -> None:
         try:
