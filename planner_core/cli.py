@@ -261,8 +261,11 @@ def cmd_accept(args: argparse.Namespace) -> int:
 
 
 def cmd_ws(args: argparse.Namespace) -> int:
+    import logging
+
     from .platform import planner_ws
 
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = load_settings()
     settings.validate()
     try:
@@ -273,8 +276,11 @@ def cmd_ws(args: argparse.Namespace) -> int:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
+    import logging
+
     from .service.daemon import PlannerDaemon
 
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = load_settings()
     settings.validate()
     daemon = PlannerDaemon(settings, send=not args.no_send, tick_interval=args.tick)
