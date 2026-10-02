@@ -39,6 +39,8 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
    `planner goal set-criteria <goal_id> "<criteria>" --confirmed` and the tree with
    `planner plan apply` (`acceptance_type=expert` for those points). No expert → decompose
    yourself. `plan apply` sets `plan_status=draft`.
+   **If the expert equals THIS workspace, never `a2a_call` yourself — just do the decomposition
+   (and later the expert verification) yourself.**
 4. Approval gate: while `plan_status=draft`, only output the task tree for human approval (the
    platform page has "通过拆解"); do NOT dispatch. After approval, dispatch ready tasks:
    `planner dispatch <target_wid> "任务内容" --task-id <task_id>` — auto-prepends
@@ -48,8 +50,9 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
    `planner report <goal_id> --task <task_id>` to compile the situation, then `a2a_call` the
    expert for a JSON verdict `{accepted, reason, adjustments?}`. `accepted` → `planner task set
    <id> done`; `adjustments` → apply them (`planner plan apply --replace`, full tree
-   replacement, which returns `plan_status` to `draft`) and wait for human re-approval. **Never
-   dispatch an expert acceptance point as a normal worker task.**
+   replacement, which returns `plan_status` to `draft`) and wait for human re-approval. **If the
+   expert is THIS workspace, verify it yourself (no `a2a_call`). Never dispatch an expert
+   acceptance point as a normal worker task.**
 6. Failures/blocks: `planner plan recover <goal_id>`.
 7. Human acceptance: tasks in `waiting_human` (or `acceptance_type=manual`) need a human
    decision — ask via your native question/permission (the platform surfaces it as

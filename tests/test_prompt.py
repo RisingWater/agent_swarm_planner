@@ -26,3 +26,17 @@ def test_prompt_contains_goal_and_tasks():
 def test_prompt_empty_tree_asks_decompose():
     text = build_prompt(_settings(), Goal(id="g1", title="g"), [])
     assert "尚未拆解" in text
+
+
+def test_prompt_self_expert_no_a2a():
+    from planner_core.models import Goal as G
+
+    text = build_prompt(_settings(), G(id="g1", title="g", expert_workspace_id="wid", expert_name="我"), [])
+    assert "你自己" in text and "不要 a2a_call" in text
+
+
+def test_prompt_remote_expert_uses_a2a():
+    from planner_core.models import Goal as G
+
+    text = build_prompt(_settings(), G(id="g1", title="g", expert_workspace_id="OTHER", expert_name="外部专家"), [])
+    assert "a2a_call" in text and "外部专家" in text

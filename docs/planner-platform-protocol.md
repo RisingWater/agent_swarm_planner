@@ -45,6 +45,9 @@ core 回执：
 **专家工作区**：`goal.create` 可带 `expert_workspace_id` / `expert_name`。有专家时，任务树由
 planner agent 与专家 agent 沟通后写入；专家验收点用 `acceptance_type=expert`，任务会进入
 `waiting_expert` 状态，由 planner agent 汇总情况请专家裁决（平台不参与专家对话，只负责选择与展示）。
+**专家可以与 planner 工作区相同**（`expert_workspace_id == planner wid`）：此时不走 A2A
+（自我派单会被平台拒），planner agent 直接自行拆解与自评审；平台应允许选中 planner 工作区自身，
+并标注「本工作区（自评审）」。
 
 **字段约定**：`priority` 用 `高=2 / 中=1 / 低=0`（排序数值大优先）；`deadline` 为空字符串 =
 无截止；`success_criteria` 由专家确认，`criteria_confirmed=1` 表示已确认（`goal.update` 可写
