@@ -65,8 +65,18 @@ def cmd_goal_add(args: argparse.Namespace) -> int:
         priority=args.priority,
         deadline=args.deadline or "",
         success_criteria=args.criteria or "",
+        expert_workspace_id=args.expert or "",
+        expert_name=args.expert_name or "",
     )
     print(json.dumps(goal.__dict__, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_goal_set_expert(args: argparse.Namespace) -> int:
+    svc = _svc(args)
+    svc.init()
+    result = svc.set_expert(args.goal_id, args.workspace_id, args.name or "")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -206,6 +216,17 @@ def cmd_ping(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_workspaces(args: argparse.Namespace) -> int:
+    from .platform.mcp_client import MCPClient
+
+    settings = load_settings()
+    settings.validate()
+    for w in MCPClient(settings).list_workspaces(include_offline=args.all):
+        print(f"{w.get('workspace_id')}  {str(w.get('role') or 'agent'):8} "
+              f"{str(w.get('status') or ''):8} {w.get('name')}")
+    return 0
+
+
 def cmd_dispatch(args: argparse.Namespace) -> int:
     svc = _svc(args)
     svc.init()
@@ -290,6 +311,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init", help="初始化 SQLite").set_defaults(func=cmd_init)
     sub.add_parser("status", help="跨目标概览").set_defaults(func=cmd_status)
     sub.add_parser("ping", help="检查平台 MCP + 控制通道连通").set_defaults(func=cmd_ping)
+    wa = sub.add_parser("workspaces", help="列出平台可见工作区（选专家/派活用）")
+    wa.add_argument("--all", action="store_true", help="包含离线工作区")
+    wa.set_defaults(func=cmd_workspaces)
 
     g = sub.add_parser("goal", help="目标管理")
     gsub = g.add_subparsers(dest="goal_cmd", required=True)
@@ -299,7 +323,14 @@ def build_parser() -> argparse.ArgumentParser:
     ga.add_argument("--criteria", default="")
     ga.add_argument("--priority", type=int, default=0)
     ga.add_argument("--deadline", default="")
+    ga.add_argument("--expert", default="", help="专家 agent 工作区 ID（负责拆解与专家验收）")
+    ga.add_argument("--expert-name", default="", help="专家工作区名称（展示用）")
     ga.set_defaults(func=cmd_goal_add)
+    gse = gsub.add_parser("set-expert", help="设置/更换目标的专家工作区")
+    gse.add_argument("goal_id")
+    gse.add_argument("workspace_id")
+    gse.add_argument("--name", default="")
+    gse.set_defaults(func=cmd_goal_set_expert)
     gsub.add_parser("list", help="列出目标").set_defaults(func=cmd_goal_list)
 
     t = sub.add_parser("task", help="任务管理")

@@ -24,6 +24,8 @@ def _row_to_goal(row) -> Goal:
         success_criteria=row["success_criteria"] or "",
         status=row["status"] or "active",
         plan_status=(row["plan_status"] if "plan_status" in row.keys() else None) or "draft",
+        expert_workspace_id=(row["expert_workspace_id"] if "expert_workspace_id" in row.keys() else None) or "",
+        expert_name=(row["expert_name"] if "expert_name" in row.keys() else None) or "",
         created_at=row["created_at"] or "",
         updated_at=row["updated_at"] or "",
     )
@@ -60,6 +62,8 @@ class Store:
         priority: int = 0,
         deadline: str = "",
         success_criteria: str = "",
+        expert_workspace_id: str = "",
+        expert_name: str = "",
     ) -> Goal:
         now = dbmod.utcnow()
         gid = new_id("goal")
@@ -67,10 +71,10 @@ class Store:
         try:
             conn.execute(
                 "INSERT INTO goals (id,title,description,priority,deadline,"
-                "success_criteria,status,plan_status,created_at,updated_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "success_criteria,status,plan_status,expert_workspace_id,expert_name,"
+                "created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (gid, title, description, priority, deadline, success_criteria,
-                 "active", "draft", now, now),
+                 "active", "draft", expert_workspace_id, expert_name, now, now),
             )
             conn.commit()
         finally:
@@ -117,8 +121,20 @@ class Store:
         finally:
             conn.close()
 
+    def set_goal_expert(self, goal_id: str, expert_workspace_id: str, expert_name: str = "") -> None:
+        conn = dbmod.connect(self.db_path)
+        try:
+            conn.execute(
+                "UPDATE goals SET expert_workspace_id=?, expert_name=?, updated_at=? WHERE id=?",
+                (expert_workspace_id, expert_name, dbmod.utcnow(), goal_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     def update_goal(self, goal_id: str, **fields: object) -> None:
-        allowed = {"title", "description", "priority", "deadline", "success_criteria", "status", "plan_status"}
+        allowed = {"title", "description", "priority", "deadline", "success_criteria",
+                   "status", "plan_status", "expert_workspace_id", "expert_name"}
         sets = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not sets:
             return

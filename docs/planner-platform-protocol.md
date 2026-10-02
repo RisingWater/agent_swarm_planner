@@ -40,6 +40,10 @@ core 回执：
 ```
 幂等：core 用 `operations` 表按 `op_id` 去重，重复操作直接返回上一次结果（不重复执行）。
 
+**专家工作区**：`goal.create` 可带 `expert_workspace_id` / `expert_name`。有专家时，任务树由
+planner agent 与专家 agent 沟通后写入；专家验收点用 `acceptance_type=expert`，任务会进入
+`waiting_expert` 状态，由 planner agent 汇总情况请专家裁决（平台不参与专家对话，只负责选择与展示）。
+
 ## 3. core → 平台：状态快照
 
 每次变更后、连接建立后、以及每 30s 周期推送：
@@ -48,7 +52,8 @@ core 回执：
   "workspace_id":"<wid>",
   "updated_at":"<ISO>",
   "goals":[{"id","title","description","status","plan_status","priority","deadline",
-            "success_criteria","progress":{"done":n,"total":m}}],
+            "success_criteria","expert_workspace_id","expert_name",
+            "progress":{"done":n,"total":m}}],
   "tasks":[{"id","goal_id","title","status","depends_on":[...],
             "assigned_agent","acceptance_type","acceptance_result","updated_at"}]
 }}

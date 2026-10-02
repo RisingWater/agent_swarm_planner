@@ -32,20 +32,29 @@ lives in SQLite; drive it with the CLI (`planner <sub>`; or `.venv\Scripts\pytho
 
 1. **Compress context first** (the injected step 0) — always.
 2. Read state: `planner plan export <goal_id>` (machine-readable) / `planner plan show <goal_id>`.
-3. Decompose: write a JSON plan, then `planner plan apply <goal_id> --file plan.json`.
-   Format: `{"tasks":[{"temp_id","title","depends_on":[],"assigned_agent","acceptance_type","execution_spec"}]}`
-   (`temp_id` references may be out of order; the DAG is validated). This sets `plan_status=draft`.
+3. Decompose: if the goal has an **expert workspace** (`expert_workspace_id`), first talk to it
+   via platform `a2a_call` (from_workspace = this workspace, reuse `context_id` for multi-turn)
+   and get the task tree incl. **expert acceptance points**; then `planner plan apply` it
+   (`acceptance_type=expert` for those points). No expert → decompose yourself. `plan apply`
+   sets `plan_status=draft`.
 4. Approval gate: while `plan_status=draft`, only output the task tree for human approval (the
    platform page has "通过拆解"); do NOT dispatch. After approval, dispatch ready tasks:
    `planner dispatch <target_wid> "任务内容" --task-id <task_id>` — auto-prepends
    `PLANNER_DISPATCH_PREAMBLE` ("compress context first") and links the worker task back to the
    local task (worker terminal state is written back by `planner serve`).
-5. Failures/blocks: `planner plan recover <goal_id>`.
-6. Human acceptance: tasks in `waiting_human` (or `acceptance_type=manual`) need a human
+5. Expert acceptance (`acceptance_type=expert` / status `waiting_expert`): compile the point's
+   related task states + executions and `a2a_call` the expert for a JSON verdict
+   `{accepted, reason, adjustments?}`. `accepted` → `planner task set <id> done`; `adjustments`
+   → apply them (`plan apply`, which returns `plan_status` to `draft`) and wait for human
+   re-approval. **Never dispatch an expert acceptance point as a normal worker task.**
+6. Failures/blocks: `planner plan recover <goal_id>`.
+7. Human acceptance: tasks in `waiting_human` (or `acceptance_type=manual`) need a human
    decision — ask via your native question/permission (the platform surfaces it as
    `input-required`); on approval `planner task set <id> done`, on reject `... failed`.
-7. Finish: `planner plan markdown <goal_id>` and use that output as your reply — the platform
+8. Finish: `planner plan markdown <goal_id>` and use that output as your reply — the platform
    "Planner" page renders it as the task tree.
+9. Discovery: `planner workspaces [--all]` lists visible workspaces (id/role/status/name) to
+   pick an expert or a worker.
 
 ## Config resolution (in order)
 

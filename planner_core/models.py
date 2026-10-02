@@ -13,6 +13,7 @@ TASK_STATUSES = (
     "failed",
     "blocked",
     "waiting_human",
+    "waiting_expert",
 )
 
 # 终态：不再参与调度
@@ -33,6 +34,8 @@ class Goal:
     success_criteria: str = ""
     status: str = "active"
     plan_status: str = "draft"   # draft | approved
+    expert_workspace_id: str = ""
+    expert_name: str = ""
     created_at: str = ""
     updated_at: str = ""
 

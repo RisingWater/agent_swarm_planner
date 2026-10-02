@@ -85,6 +85,16 @@ async def test_plan_approve_sets_approved(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_goal_create_with_expert(tmp_path):
+    svc = _svc(tmp_path)
+    r = await svc.handle_op("goal.create", {
+        "title": "g", "expert_workspace_id": "E1", "expert_name": "领域专家"}, op_id="exp1")
+    st = await svc.handle_op("state.get", {})
+    goal = st["state"]["goals"][0]
+    assert r["ok"] and goal["expert_workspace_id"] == "E1" and goal["expert_name"] == "领域专家"
+
+
+@pytest.mark.asyncio
 async def test_unknown_op(tmp_path):
     svc = _svc(tmp_path)
     r = await svc.handle_op("nope", {})

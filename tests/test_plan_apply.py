@@ -111,3 +111,15 @@ def test_apply_acceptance_auto_no_command_done(tmp_path):
     svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "a", "acceptance_type": "auto"}]})
     t = svc.store.list_tasks(goal.id)[0]
     assert svc.apply_acceptance(t.id)["status"] == "done"
+
+
+def test_set_expert_and_expert_acceptance(tmp_path):
+    svc = _service(tmp_path)
+    goal = svc.create_goal("g")
+    svc.set_expert(goal.id, "E1", "领域专家")
+    assert svc.store.get_goal(goal.id).expert_workspace_id == "E1"
+    svc.apply_plan(goal.id, {"tasks": [{"temp_id": "a", "title": "验收点", "acceptance_type": "expert"}]})
+    t = svc.store.list_tasks(goal.id)[0]
+    assert t.acceptance_type == "expert"
+    assert svc.apply_acceptance(t.id)["status"] == "waiting_expert"
+    assert svc.store.get_task(t.id).status == "waiting_expert"

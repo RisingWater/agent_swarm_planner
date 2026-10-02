@@ -52,6 +52,15 @@
 - [x] **拆解人工审批**：`goals.plan_status`(draft/approved)，`apply_plan`→draft，`plan.approve`→approved；守护仅在 approved 后催派发
 - [ ] **重规划闭环**：blocked / `plan.revise` → 重新注入让 agent 出子树替换（prompt 已含指引，待实测）
 
+### M4 专家工作区（专家拆解 + 专家验收）
+- [x] `goals.expert_workspace_id/expert_name` + 迁移；`goal.create` 可带专家
+- [x] 新增 `acceptance_type=expert` 与状态 `waiting_expert`；`apply_acceptance` 专家点→`waiting_expert`
+- [x] planner agent 全权沟通专家（提示词 + AGENTS playbook：专家拆解、专家验收 JSON 裁决）
+- [x] CLI：`goal add --expert` / `goal set-expert` / `workspaces`
+- [x] 专家调整 → `apply_plan` 回 `plan_status=draft` 等人工再审
+- [ ] 平台：建目标加**专家工作区选择器**、目标展示专家、任务树标 `expert` 验收点与 `waiting_expert`
+- [ ] 端到端实测：建目标(带专家)→专家拆解→审批→派发→专家验收→裁决/调整
+
 ### 接口决策（已定，勿反复）
 - [x] 设计往返：确定"Python 服务发给自己"+ planner 标志 + agent 决策/派活的整体架构
 - [x] 派单规则：任何派活第一句先让对方压缩上下文（prompt 第 0 步 + `dispatch` 前导）

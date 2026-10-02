@@ -70,8 +70,11 @@ class PlannerService:
         priority: int = 0,
         deadline: str = "",
         success_criteria: str = "",
+        expert_workspace_id: str = "",
+        expert_name: str = "",
     ) -> Goal:
-        return self.store.add_goal(title, description, priority, deadline, success_criteria)
+        return self.store.add_goal(title, description, priority, deadline, success_criteria,
+                                   expert_workspace_id, expert_name)
 
     def list_goals(self) -> list[Goal]:
         return self.store.list_goals()
@@ -207,6 +210,9 @@ class PlannerService:
         if task.acceptance_type == "manual":
             self.store.set_task_status(task_id, "waiting_human")
             return {"task_id": task_id, "status": "waiting_human", "reason": "manual acceptance"}
+        if task.acceptance_type == "expert":
+            self.store.set_task_status(task_id, "waiting_expert")
+            return {"task_id": task_id, "status": "waiting_expert", "reason": "expert acceptance"}
         spec = acceptance.acceptance_spec(task)
         if spec.get("accept_command") or spec.get("command"):
             return self.run_acceptance(task_id)
@@ -280,6 +286,8 @@ class PlannerService:
                 priority=int(payload.get("priority") or 0),
                 deadline=str(payload.get("deadline") or ""),
                 success_criteria=str(payload.get("success_criteria") or ""),
+                expert_workspace_id=str(payload.get("expert_workspace_id") or ""),
+                expert_name=str(payload.get("expert_name") or ""),
             )
             return {"ok": True, "goal_id": goal.id}
         if op == "goal.update":
@@ -307,8 +315,8 @@ class PlannerService:
             task = self.store.get_task(tid)
             if task is None:
                 return {"ok": False, "error": f"任务不存在: {tid}"}
-            if task.status != "waiting_human":
-                # 只接受“待人工验收”的任务，避免误点；终态视为幂等成功
+            if task.status not in ("waiting_human", "waiting_expert"):
+                # 只接受“待人/待专家验收”的任务，避免误点；终态视为幂等成功
                 if task.status in ("done", "failed", "blocked"):
                     return {"ok": True, "note": f"任务已是终态 {task.status}"}
                 return {"ok": False, "error": f"任务不在待验收状态（当前 {task.status}）"}
@@ -343,6 +351,18 @@ class PlannerService:
         wid = str(res.get("workspace_id") or s.workspace_id)
         _write_workspace_md(s.root, wid, purpose, capabilities, role=role)
         return {"workspace_id": wid, "role": str(res.get("role") or role), "result": res}
+
+    # ---------------------------------------------------------------- 专家
+    def list_workspaces(self, include_offline: bool = False) -> list[dict[str, Any]]:
+        from ..platform.mcp_client import MCPClient
+
+        return MCPClient(self.settings).list_workspaces(include_offline=include_offline)
+
+    def set_expert(self, goal_id: str, expert_workspace_id: str, expert_name: str = "") -> dict[str, Any]:
+        if self.store.get_goal(goal_id) is None:
+            raise KeyError(f"目标不存在: {goal_id}")
+        self.store.set_goal_expert(goal_id, expert_workspace_id, expert_name)
+        return {"ok": True, "goal_id": goal_id, "expert_workspace_id": expert_workspace_id}
 
     # ---------------------------------------------------------------- 派单
     def wrap_dispatch(self, message: str) -> str:
@@ -472,6 +492,8 @@ class PlannerService:
             "",
             f"- 状态：{goal.status} · 拆解：{goal.plan_status} · 优先级：{goal.priority} · 进度：{done}/{len(tasks)}",
         ]
+        if goal.expert_workspace_id:
+            lines.append(f"- 专家工作区：{goal.expert_name or goal.expert_workspace_id} (`{goal.expert_workspace_id}`)")
         if goal.success_criteria:
             lines.append(f"- 成功标准：{goal.success_criteria}")
         if goal.deadline:
