@@ -118,7 +118,8 @@ class PlannerService:
                 goal_id=goal_id,
                 title=title,
                 description=str(spec.get("description") or ""),
-                assigned_agent=str(spec.get("assigned_agent") or spec.get("agent") or ""),
+                assigned_agent=str(spec.get("assigned_agent") or spec.get("agent")
+                                   or spec.get("suggested_agent") or ""),
                 acceptance_type=str(spec.get("acceptance_type") or "auto"),
                 execution_spec=spec.get("execution_spec") or {},
                 parent_id=str(spec.get("parent_id") or ""),
