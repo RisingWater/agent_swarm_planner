@@ -393,10 +393,16 @@ class PlannerService:
     def wrap_dispatch(self, message: str) -> str:
         """派单固定前导：先要求对方压缩上下文（规则机械化，不依赖 agent 记忆）。"""
         pre = (self.settings.dispatch_preamble or "").strip()
+        rule = ("【代码边界规则】只允许修改你自己工作区维护的代码/仓库；"
+                "不得修改其它工作区维护的代码，除非用户明确允许。"
+                "如任务涉及其它工作区的代码，请在回复中说明，由规划器转派给对应工作区代为修改。")
         msg = (message or "").strip()
-        if pre and not msg.startswith(pre):
-            return f"{pre}\n\n{msg}"
-        return msg
+        has_rule = msg.startswith(rule) or (pre and rule in msg)
+        if has_rule:
+            return msg if not pre or msg.startswith(pre) else f"{pre}\n\n{msg}"
+        if pre:
+            return f"{pre}\n\n{rule}\n\n{msg}"
+        return f"{rule}\n\n{msg}"
 
     def dispatch(self, target: str, message: str, wait_seconds: int = 0, task_id: str = "") -> dict[str, Any]:
         """经平台 MCP `a2a_call` 把（带前导的）任务派给目标工作区。

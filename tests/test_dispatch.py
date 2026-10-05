@@ -24,6 +24,7 @@ def test_wrap_dispatch_prepends_preamble(tmp_path):
     out = svc.wrap_dispatch("给我干个活")
     assert out.startswith("请先压缩")
     assert "给我干个活" in out
+    assert "代码边界规则" in out  # 派单固定携带代码边界规则
     assert svc.wrap_dispatch(out) == out  # 不重复加前导
 
 
